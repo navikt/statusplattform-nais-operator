@@ -1,0 +1,9 @@
+# Cargo/Rust
+/target/
+
+# Nix
+result
+/.direnv/
+
+# Direnv
+.env*

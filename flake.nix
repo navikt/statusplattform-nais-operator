@@ -1,0 +1,144 @@
+{
+  description = "A Nix-flake based development interface for NAV's Statusplattform's K8s operator";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs";
+    flake-utils.url = "github:numtide/flake-utils";
+
+    # Rust compile stuff
+    crane = {
+      url = "github:ipetkov/crane";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
+
+    # Rust 3rd party tooling
+    advisory-db = {
+      url = "github:rustsec/advisory-db";
+      flake = false;
+    };
+  };
+
+  outputs =
+    { self, ... }@inputs:
+    inputs.flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = import inputs.nixpkgs {
+          inherit system;
+          overlays = [ (import inputs.rust-overlay) ];
+        };
+
+        # Target musl when building on 64-bit linux to create statically linked binaries
+        # Set-up build dependencies and configure rust for statically lined binaries
+        CARGO_BUILD_TARGET =
+          {
+            # Insert other "<host archs> = <target archs>" at will
+            "x86_64-linux" = "x86_64-unknown-linux-musl";
+          }
+          .${system} or (pkgs.rust.toRustTargetSpec pkgs.stdenv.hostPlatform);
+        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+          targets = [
+            CARGO_BUILD_TARGET
+            (pkgs.rust.toRustTargetSpec pkgs.stdenv.hostPlatform)
+          ];
+        };
+        craneLib = (inputs.crane.mkLib pkgs).overrideToolchain rustToolchain;
+
+        # Common vars
+        cargoDetails = pkgs.lib.importTOML ./Cargo.toml;
+        pname = cargoDetails.package.name;
+        src = craneLib.cleanCargoSource (craneLib.path ./.);
+        commonArgs = {
+          inherit pname src CARGO_BUILD_TARGET;
+          nativeBuildInputs = with pkgs; [ pkg-config ];
+        };
+
+        # Compile (and cache) cargo dependencies _only_
+        cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+
+        # Compile workspace code (including 3rd party dependencies)
+        cargo-package = craneLib.buildPackage (
+          commonArgs
+          // {
+            inherit cargoArtifacts;
+          }
+        );
+      in
+      {
+        checks = {
+          inherit cargo-package;
+          # Run clippy (and deny all warnings) on the crate source,
+          # again, resuing the dependency artifacts from above.
+          #
+          # Note that this is done as a separate derivation so that
+          # we can block the CI if there are issues here, but not
+          # prevent downstream consumers from building our crate by itself.
+          # my-crate-clippy = craneLib.cargoClippy (commonArgs // {
+          #   inherit cargoArtifacts;
+          #   cargoClippyExtraArgs = "--all-targets -- --deny warnings";
+          # });
+
+          my-crate-doc = craneLib.cargoDoc (commonArgs // { inherit cargoArtifacts; });
+
+          # Check formatting
+          my-crate-fmt = craneLib.cargoFmt { inherit src; };
+
+          # Audit dependencies
+          my-crate-audit = craneLib.cargoAudit {
+            inherit (inputs) advisory-db;
+            inherit src;
+          };
+
+          # Run tests with cargo-nextest
+          # Consider setting `doCheck = false` on `my-crate` if you do not want
+          # the tests to run twice
+          # my-crate-nextest = craneLib.cargoNextest (commonArgs // {
+          #   inherit cargoArtifacts;
+          #   partitions = 1;
+          #   partitionType = "count";
+          # });
+        };
+        devShells.default = craneLib.devShell {
+          packages = with pkgs; [
+            cargo-audit
+            cargo-auditable
+            cargo-deny
+            cargo-outdated
+            cargo-cyclonedx
+            cargo-watch
+
+            # Editor stuffs
+            helix
+            lldb
+            rust-analyzer
+          ];
+
+          shellHook = ''
+            ${rustToolchain}/bin/cargo --version
+            ${pkgs.helix}/bin/hx --health rust
+          '';
+        };
+
+        packages = rec {
+          default = rust;
+          rust = cargo-package;
+          docker = pkgs.dockerTools.buildImage {
+            name = pname;
+            tag = "v${cargoDetails.package.version}";
+            config = {
+              Cmd = "--help";
+              Entrypoint = [ "${cargo-package}/bin/${pname}" ];
+            };
+          };
+        };
+
+        # Now `nix fmt` works!
+        formatter = pkgs.nixfmt-rfc-style;
+      }
+    );
+}
