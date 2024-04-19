@@ -13,8 +13,12 @@ async fn main() -> color_eyre::eyre::Result<()> {
     let client = Client::try_default().await?;
     // TODO: Exclude nais namespaces
     let api = Api::<Service>::all(client);
-    // requires WatchList feature gate on 1.27 or later
-    let wc = watcher::Config::default().streaming_lists();
+    // requires WatchList feature gate on 1.27 or later: TODO check if cluster supports
+    // TODO: Confirm label and field selectors
+    let wc = watcher::Config::default()
+        .labels("nais-app:TODO")
+        .fields(".spec.clusterIps")
+        .streaming_lists();
 
     watcher(api, wc)
         .applied_objects()
