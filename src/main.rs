@@ -1,5 +1,5 @@
 use futures::TryStreamExt;
-use k8s_openapi::api::core::v1::Pod;
+use k8s_openapi::api::core::v1::Service;
 use kube::{
     api::{Api, ResourceExt},
     runtime::{watcher, WatchStreamExt},
@@ -11,23 +11,16 @@ use tracing::{info, warn};
 async fn main() -> color_eyre::eyre::Result<()> {
     tracing_subscriber::fmt::init();
     let client = Client::try_default().await?;
-    let api = Api::<Pod>::default_namespaced(client);
-    let use_watchlist = std::env::var("WATCHLIST")
-        .map(|s| s == "1")
-        .unwrap_or(false);
-    let wc = if use_watchlist {
-        // requires WatchList feature gate on 1.27 or later
-        watcher::Config::default().streaming_lists()
-    } else {
-        watcher::Config::default()
-    };
+    let api = Api::<Service>::default_namespaced(client);
+    // requires WatchList feature gate on 1.27 or later
+    let wc = watcher::Config::default().streaming_lists();
 
     watcher(api, wc)
         .applied_objects()
         .default_backoff()
-        .try_for_each(|p| async move {
-            info!("saw {}", p.name_any());
-            if let Some(unready_reason) = pod_unready(&p) {
+        .try_for_each(|s| async move {
+            info!("saw {}", s.name_any());
+            if let Some(unready_reason) = service_unready(&s) {
                 warn!("{}", unready_reason);
             }
             Ok(())
@@ -36,20 +29,17 @@ async fn main() -> color_eyre::eyre::Result<()> {
     Ok(())
 }
 
-fn pod_unready(p: &Pod) -> Option<String> {
-    let status = p.status.as_ref().unwrap();
+fn service_unready(s: &Service) -> Option<String> {
+    let status = s.status.as_ref().unwrap();
     if let Some(conds) = &status.conditions {
         let failed = conds
             .iter()
             .filter(|c| c.type_ == "Ready" && c.status == "False")
-            .map(|c| c.message.clone().unwrap_or_default())
+            .map(|c| c.message.clone())
             .collect::<Vec<_>>()
             .join(",");
         if !failed.is_empty() {
-            if p.metadata.labels.as_ref().unwrap().contains_key("job-name") {
-                return None; // ignore job based pods, they are meant to exit 0
-            }
-            return Some(format!("Unready pod {}: {}", p.name_any(), failed));
+            return Some(format!("Unready service {}: {}", s.name_any(), failed));
         }
     }
     None
