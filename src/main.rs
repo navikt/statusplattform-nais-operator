@@ -11,7 +11,8 @@ use tracing::{info, warn};
 async fn main() -> color_eyre::eyre::Result<()> {
     tracing_subscriber::fmt::init();
     let client = Client::try_default().await?;
-    let api = Api::<Service>::default_namespaced(client);
+    // TODO: Exclude nais namespaces
+    let api = Api::<Service>::all(client);
     // requires WatchList feature gate on 1.27 or later
     let wc = watcher::Config::default().streaming_lists();
 
