@@ -44,6 +44,7 @@ async fn main() -> color_eyre::eyre::Result<()> {
         .applied_objects()
         .default_backoff()
         .try_for_each(|s| async move {
+            // s.metadata... // TODO: Ensure owner reference to a nais.io/XXXX Application
             info!("saw {}", s.name_any());
             match service_is_ready(&s) {
                 // TODO: Send http request to the statusplattform backend API w/reqwest
