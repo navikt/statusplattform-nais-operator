@@ -23,14 +23,12 @@
     };
   };
 
-  outputs =
-    { self, ... }@inputs:
+  outputs = {self, ...} @ inputs:
     inputs.flake-utils.lib.eachDefaultSystem (
-      system:
-      let
+      system: let
         pkgs = import inputs.nixpkgs {
           inherit system;
-          overlays = [ (import inputs.rust-overlay) ];
+          overlays = [(import inputs.rust-overlay)];
         };
 
         # Target musl when building on 64-bit linux to create statically linked binaries
@@ -40,7 +38,8 @@
             # Insert other "<host archs> = <target archs>" at will
             "x86_64-linux" = "x86_64-unknown-linux-musl";
           }
-          .${system} or (pkgs.rust.toRustTargetSpec pkgs.stdenv.hostPlatform);
+          .${system}
+          or (pkgs.rust.toRustTargetSpec pkgs.stdenv.hostPlatform);
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           targets = [
             CARGO_BUILD_TARGET
@@ -55,21 +54,15 @@
         src = craneLib.cleanCargoSource (craneLib.path ./.);
         commonArgs = {
           inherit pname src CARGO_BUILD_TARGET;
-          nativeBuildInputs = with pkgs; [ pkg-config ];
+          nativeBuildInputs = with pkgs; [pkg-config];
         };
 
         # Compile (and cache) cargo dependencies _only_
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
         # Compile workspace code (including 3rd party dependencies)
-        cargo-package = craneLib.buildPackage (
-          commonArgs
-          // {
-            inherit cargoArtifacts;
-          }
-        );
-      in
-      {
+        cargo-package = craneLib.buildPackage (commonArgs // {inherit cargoArtifacts;});
+      in {
         checks = {
           inherit cargo-package;
           # Run clippy (and deny all warnings) on the crate source,
@@ -78,15 +71,18 @@
           # Note that this is done as a separate derivation so that
           # we can block the CI if there are issues here, but not
           # prevent downstream consumers from building our crate by itself.
-          # my-crate-clippy = craneLib.cargoClippy (commonArgs // {
-          #   inherit cargoArtifacts;
-          #   cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-          # });
+          my-crate-clippy = craneLib.cargoClippy (
+            commonArgs
+            // {
+              inherit cargoArtifacts;
+              cargoClippyExtraArgs = "--all-targets -- --deny warnings";
+            }
+          );
 
-          my-crate-doc = craneLib.cargoDoc (commonArgs // { inherit cargoArtifacts; });
+          my-crate-doc = craneLib.cargoDoc (commonArgs // {inherit cargoArtifacts;});
 
           # Check formatting
-          my-crate-fmt = craneLib.cargoFmt { inherit src; };
+          my-crate-fmt = craneLib.cargoFmt {inherit src;};
 
           # Audit dependencies
           my-crate-audit = craneLib.cargoAudit {
@@ -132,7 +128,7 @@
             tag = "v${cargoDetails.package.version}";
             config = {
               Cmd = "--help";
-              Entrypoint = [ "${cargo-package}/bin/${pname}" ];
+              Entrypoint = ["${cargo-package}/bin/${pname}"];
             };
           };
         };
