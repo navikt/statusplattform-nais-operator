@@ -1,9 +1,9 @@
 use std::{collections::HashSet, env};
 
 use futures::TryStreamExt;
-use k8s_openapi::api::discovery::v1::EndpointSlice;
+use k8s_openapi::{api::discovery::v1::EndpointSlice, Metadata};
 use kube::{
-	api::{Api, ResourceExt},
+	api::{Api, ObjectMeta, ResourceExt},
 	runtime::{watcher, WatchStreamExt},
 	Client,
 };
@@ -46,6 +46,20 @@ fn endpointslice_is_ready(endpoint_slice: &EndpointSlice) -> bool {
 		.any(|is_ready| is_ready)
 }
 
+fn has_expected_owner_reference(o: &ObjectMeta, app_name: Option<&str>) -> bool {
+	let Some(name) = app_name else {
+		// We expect any `EndpointSlice`s made by `Service`s to propagate the `Service`'s labels
+		return false;
+	};
+	let Some(ref owners) = o.owner_references else {
+		// We only care about `EndpointSlice`s that've owner references to a `Service`
+		return false;
+	};
+	owners
+		.iter()
+		.any(|o| o.api_version == "v1" && o.kind == "Service" && o.name.as_str() == name)
+}
+
 #[tokio::main]
 async fn main() -> color_eyre::eyre::Result<()> {
 	tracing_subscriber::fmt::init();
@@ -59,8 +73,19 @@ async fn main() -> color_eyre::eyre::Result<()> {
 		.applied_objects()
 		.default_backoff()
 		.try_for_each(|s| async move {
-			// s.metadata... // TODO: Ensure owner reference to a nais.io/XXXX Application
 			info!("saw {}", s.name_any());
+
+			let has_expected_owner = has_expected_owner_reference(
+				s.metadata(),
+				s.labels().get("app").map(String::as_str),
+			);
+			if !has_expected_owner {
+				// This is not an endpoint generated for a service, we should not care.
+				return Ok(());
+			};
+
+			// s.metadata... // TODO: Ensure owner reference to a nais.io/XXXX Application
+
 			if endpointslice_is_ready(&s) {
 				// TODO: Send http request to the statusplattform backend API w/reqwest
 				warn!(
