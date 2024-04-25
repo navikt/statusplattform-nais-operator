@@ -15,7 +15,7 @@ use tracing::{info, warn};
 ///    - remove duplicate namespaces
 ///    - returns comma-separated string of format `namespace!=<namespace name>`
 fn collate_excluded_namespaces(env_vars: &[&str]) -> String {
-	let env_vals: HashSet<String> = env_vars
+	let excluded_namespaces: HashSet<String> = env_vars
 		.iter()
 		.flat_map(|env_var| {
 			let Ok(env_val) = env::var(env_var) else {
@@ -28,7 +28,10 @@ fn collate_excluded_namespaces(env_vars: &[&str]) -> String {
 				.collect()
 		})
 		.collect();
-	env_vals.into_iter().collect::<Vec<_>>().join(",")
+	excluded_namespaces
+		.into_iter()
+		.collect::<Vec<String>>()
+		.join(",")
 }
 
 /// Returns true if and only if at least one of the `EndpointSlice`'s
@@ -46,41 +49,35 @@ fn endpointslice_is_ready(endpoint_slice: &EndpointSlice) -> bool {
 #[tokio::main]
 async fn main() -> color_eyre::eyre::Result<()> {
 	tracing_subscriber::fmt::init();
-	let client = Client::try_default().await?;
-	let api = Api::<EndpointSlice>::all(client);
 	// requires WatchList feature gate on 1.27 or later: TODO check if cluster supports
 	let wc = watcher::Config::default()
         .labels("app,team") // I just care if the label(s) exist
         .fields(&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"]))
         .streaming_lists();
 
-	watcher(api, wc)
+	watcher(Api::<EndpointSlice>::all(Client::try_default().await?), wc)
 		.applied_objects()
 		.default_backoff()
 		.try_for_each(|s| async move {
 			// s.metadata... // TODO: Ensure owner reference to a nais.io/XXXX Application
 			info!("saw {}", s.name_any());
-			match endpointslice_is_ready(&s) {
+			if endpointslice_is_ready(&s) {
 				// TODO: Send http request to the statusplattform backend API w/reqwest
-				true => {
-					warn!(
-						"{}/{} is alive!!!",
-						s.metadata.namespace.unwrap(),
-						s.metadata.name.unwrap()
-					);
-					// unimplemented!()
-				},
-				false => {
-					warn!(
-						"{}/{} is dead!!!",
-						s.metadata.namespace.unwrap(),
-						s.metadata.name.unwrap()
-					);
-					// unimplemented!()
-				},
-			};
+				warn!(
+					"{}/{} is alive!!!",
+					s.metadata.namespace.unwrap(),
+					s.metadata.name.unwrap()
+				);
+			} else {
+				warn!(
+					"{}/{} is dead!!!",
+					s.metadata.namespace.unwrap(),
+					s.metadata.name.unwrap()
+				);
+			}
 			// TODO: Consider/research if the events can be further filtered to only send http request to backend
-			Ok(())
+			todo!();
+			// Ok(()) // TODO: Comment back in when removing above todo!()
 		})
 		.await?;
 	Ok(())
