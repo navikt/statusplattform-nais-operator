@@ -1,4 +1,4 @@
-use std::env;
+use std::{collections::HashSet, env};
 
 use futures::TryStreamExt;
 use k8s_openapi::api::core::v1::Service;
@@ -8,6 +8,29 @@ use kube::{
     Client,
 };
 use tracing::{info, warn};
+
+/// Exclude namespaces that contain NAIS app services we don't care about.
+///   Will:
+///    - expect comma-separated string lists in environment variable names supplied
+///    - remove duplicate namespaces
+///    - returns comma-separated string of format `namespace!=<namespace name>`
+fn collate_excluded_namespaces(env_vars: &[&str]) -> String {
+    let env_vals: HashSet<String> = env_vars
+        .into_iter()
+        .map(|env_var| {
+            let Ok(env_val) = env::var(env_var) else {
+                warn!("Unable to read supplied env var: {}", env_var);
+                return Vec::new();
+            };
+            env_val
+                .split(",")
+                .map(|ns| format!("namespace!={}", ns))
+                .collect()
+        })
+        .flatten()
+        .collect();
+    env_vals.into_iter().collect::<Vec<_>>().join(",")
+}
 
 /// Returns true if and only if the Service's `spec.clusterIPs`
 ///  (as addressed in the YAML spec) is _not_ empty.
@@ -27,17 +50,9 @@ async fn main() -> color_eyre::eyre::Result<()> {
     let client = Client::try_default().await?;
     let api = Api::<Service>::all(client);
     // requires WatchList feature gate on 1.27 or later: TODO check if cluster supports
-    // TODO: Exclude non-app namespaces (like NAIS ones)
-    let platform_namespaces = env::var("PLATFORM_NAMESPACES")
-        .expect("Env var 'PLATFORM_NAMESPACES' not present. Comma separated list of strings.");
-    let excluded_namespaces = platform_namespaces
-        .split(",")
-        .fold("".to_string(), |result, namespace| {
-            format!("{},namespace!={}", result, namespace)
-        });
     let wc = watcher::Config::default()
         .labels("app,team") // I just care if the label(s) exist
-        .fields(&excluded_namespaces)
+        .fields(&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"]))
         .streaming_lists();
 
     watcher(api, wc)
