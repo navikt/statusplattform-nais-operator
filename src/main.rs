@@ -16,18 +16,17 @@ use tracing::{info, warn};
 ///    - returns comma-separated string of format `namespace!=<namespace name>`
 fn collate_excluded_namespaces(env_vars: &[&str]) -> String {
     let env_vals: HashSet<String> = env_vars
-        .into_iter()
-        .map(|env_var| {
+        .iter()
+        .flat_map(|env_var| {
             let Ok(env_val) = env::var(env_var) else {
                 warn!("Unable to read supplied env var: {}", env_var);
                 return Vec::new();
             };
             env_val
-                .split(",")
-                .map(|ns| format!("namespace!={}", ns))
+                .split(',')
+                .map(|ns| format!("namespace!={ns}"))
                 .collect()
         })
-        .flatten()
         .collect();
     env_vals.into_iter().collect::<Vec<_>>().join(",")
 }
