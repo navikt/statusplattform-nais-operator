@@ -20,8 +20,12 @@ fn collate_excluded_namespaces(env_vars: &[&str]) -> String {
 		.flat_map(|env_var| {
 			let Ok(env_val) = env::var(env_var) else {
 				warn!("Unable to read supplied env var: {}", env_var);
-				return Vec::new();
+				return HashSet::new();
 			};
+			if env_val.is_empty() {
+				warn!("Supplied env var was empty: {}", env_var);
+				return HashSet::new();
+			}
 			env_val
 				.split(',')
 				.map(|ns| format!("namespace!={ns}"))
@@ -30,7 +34,7 @@ fn collate_excluded_namespaces(env_vars: &[&str]) -> String {
 		.collect();
 	excluded_namespaces
 		.into_iter()
-		.collect::<Vec<String>>()
+		.collect::<Vec<_>>()
 		.join(",")
 }
 
