@@ -64,8 +64,8 @@ fn has_expected_owner_reference(o: &ObjectMeta, app_name: &str) -> bool {
 async fn main() -> color_eyre::eyre::Result<()> {
 	tracing_subscriber::fmt::init();
 	let wc = watcher::Config::default()
-        .labels("app,team") // I just care if the label(s) exist
-        .fields(&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"]));
+        .labels("app,team"); // I just care if the label(s) exist
+        //.fields(&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"]));
 	// .streaming_lists(); // TODO: Add back in when cluster supports WatchList feature
 
 	let client = Client::try_default().await?;
