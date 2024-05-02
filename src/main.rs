@@ -63,11 +63,10 @@ fn has_expected_owner_reference(o: &ObjectMeta, app_name: &str) -> bool {
 #[tokio::main]
 async fn main() -> color_eyre::eyre::Result<()> {
 	tracing_subscriber::fmt::init();
-	// requires WatchList feature gate on 1.27 or later: TODO check if cluster supports
 	let wc = watcher::Config::default()
         .labels("app,team") // I just care if the label(s) exist
-        .fields(&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"]))
-        .streaming_lists();
+        .fields(&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"]));
+	// .streaming_lists(); // TODO: Add back in when cluster supports WatchList feature
 
 	let client = Client::try_default().await?;
 	let nais_gvk = GroupVersionKind::gvk("nais.io", "v1alpha1", "Application");
