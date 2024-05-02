@@ -63,9 +63,12 @@ fn has_expected_owner_reference(o: &ObjectMeta, app_name: &str) -> bool {
 #[tokio::main]
 async fn main() -> color_eyre::eyre::Result<()> {
 	tracing_subscriber::fmt::init();
-	let wc = watcher::Config::default()
-        .labels("app,team"); // I just care if the label(s) exist
-        //.fields(&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"]));
+
+	// We want to filter:
+	// - away resources w/o the labels we require
+	// - away resources belonging to certain namespaces (TODO)
+	let wc = watcher::Config::default().labels("app,team");
+	// .fields(&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"]));
 	// .streaming_lists(); // TODO: Add back in when cluster supports WatchList feature
 
 	let client = Client::try_default().await?;
