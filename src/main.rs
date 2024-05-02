@@ -71,10 +71,10 @@ async fn main() -> color_eyre::eyre::Result<()> {
 				let Some(namespace) = endpoint_slice.namespace() else {
 					// Something went horribly wrong when we cannot ascertain the namespace
 					//   for the given EndpointSlice
-					error!("Unable to ascertain namespace of: {}", endpoint_slice_name);
+					error!(%endpoint_slice_name, "Unable to ascertain namespace of endpoint_slice");
 					return Ok(());
 				};
-				info!("Starting to look at: {}/{}", namespace, endpoint_slice_name);
+				info!(%namespace, %endpoint_slice_name, "Starting to look at endpoint");
 
 				let (app_name, team_name) = match extract_team_and_app_labels(&endpoint_slice) {
 					(Some(app), Some(team)) => (app, team),
@@ -84,16 +84,12 @@ async fn main() -> color_eyre::eyre::Result<()> {
 						return Ok(());
 					},
 				};
-
 				if namespace != team_name {
-					warn!("Label `team_name` (`{}`) does not match namespace: `{}`", team_name, namespace);
+					warn!(%team_name, %namespace, "`team_name` label does not match namespace");
 					// TODO: Decide if we care enough to do anything about this
 				}
 
-				debug!(
-					"Checking owner references of {}/{}...",
-					&team_name, &app_name
-				);
+				debug!(%team_name, %app_name, "Checking owner reference(s)");
 				let has_expected_owner = has_service_owner(&endpoint_slice, &app_name);
 				if !has_expected_owner {
 					// This is not an endpoint generated for a service, we should not care.
@@ -104,34 +100,23 @@ async fn main() -> color_eyre::eyre::Result<()> {
 				let nais_apps = Api::<DynamicObject>::namespaced_with(client, &namespace, &nais_crd);
 				match nais_apps.get_opt(&app_name).await {
 					Err(e) => {
-						error!("Error occurred when attempting to fetch `{}/{} {}` from namespace `{}`: {}", &nais_gvk.group, &nais_gvk.version, &nais_gvk.kind, &namespace, e);
+						error!(?nais_gvk, %namespace, ?e, "Error occurred when attempting to fetch nais app");
 						// return Err(e); // TODO: Fix this so backoff can handle it
 						return Ok(());
 					},
 					Ok(nais_app) => {
 						let Some(_) = nais_app else {
-							warn!(
-								"Unable to find a `{}/{} {}` in namespace {}",
-								&nais_gvk.group, &nais_gvk.version, &nais_gvk.kind, &namespace
-							);
+							warn!(?nais_gvk, %namespace, "Unable to find any NAIS app");
 							return Ok(());
 						};
 					},
 				};
 
-				info!("Ascertained that this EndpointSlice seems to be a product of a NAIS app: {}/{} -> {}/{}", namespace, &app_name, namespace, endpoint_slice_name);
+				info!(%namespace, %app_name, %endpoint_slice_name, "Ascertained that this EndpointSlice seems to be a product of a NAIS app");
 				if endpointslice_is_ready(&endpoint_slice) {
-					warn!(
-						"{}/{} is alive!!!",
-						endpoint_slice.metadata.namespace.unwrap(),
-						endpoint_slice.metadata.name.unwrap()
-					);
+					warn!(%namespace, %app_name, "Nais app is alive!!!");
 				} else {
-					warn!(
-						"{}/{} is dead!!!",
-						endpoint_slice.metadata.namespace.unwrap(),
-						endpoint_slice.metadata.name.unwrap()
-					);
+					warn!(%namespace, %app_name, "Nais app is dead!!!");
 				}
 				// TODO: Send http request to the statusplattform backend API w/reqwest
 				todo!();
