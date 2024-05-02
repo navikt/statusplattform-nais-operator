@@ -4,6 +4,7 @@ use color_eyre::eyre;
 use k8s_openapi::api::discovery::v1::EndpointSlice;
 use tracing::warn;
 
+mod logging;
 mod operator;
 
 // TODO: Remove clippy exception once we figure out how to perform the filtering
@@ -40,7 +41,7 @@ fn collate_excluded_namespaces(env_vars: &[&str]) -> String {
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
-	tracing_subscriber::fmt::init();
+	logging::init();
 
 	operator::run(&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"])).await?;
 	Ok(())
