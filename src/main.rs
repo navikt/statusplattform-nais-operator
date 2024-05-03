@@ -107,31 +107,34 @@ async fn main() -> eyre::Result<()> {
 
 				let Some(namespace) = endpoint_slice.namespace() else {
 					// All `EndpointSlice`s should belong to a namespace...
-					error!("Unable to ascertain namespace of endpoint_slice");
+					error!("Unable to ascertain namespace of EndpointSlice");
 					return Ok(());
 				};
 				Span::current().record("namespace", &namespace);
+				debug!("Ascertained namespace of EndpointSlice");
 
 				let Some((app_name, team_name)) =
 					extract_team_and_app_labels(&endpoint_slice, &Span::current())
 				else {
-					warn!("Unable to fetch required labels on EndpointsSlice");
+					warn!("Unable to fetch required labels on EndpointSlice");
 					return Ok(());
 				};
 				Span::current().record("app_name", &app_name);
 				Span::current().record("team_name", &team_name);
+				debug!("Found required labels on EndpointSlice");
+
 				if namespace != team_name {
 					warn!("`team` label does not match namespace");
 					// TODO: Decide if we care enough to do anything about this
 				}
 
-				debug!("Checking owner reference(s)");
 				let has_expected_owner =
 					has_service_owner(&endpoint_slice, &app_name, &Span::current());
 				if !has_expected_owner {
 					warn!("EndpointSlice does not have expected Service owner reference");
 					return Ok(());
 				};
+				debug!("Found expected Service owner-reference to EndpointSlice");
 
 				if get_nais_app(
 					Api::<DynamicObject>::namespaced_with(client, &namespace, &nais_crd)
@@ -145,8 +148,8 @@ async fn main() -> eyre::Result<()> {
 					warn!("Unable to find any expected NAIS app");
 					return Ok(());
 				};
+				info!("Found NAIS app that seems to match this EndpointSlice");
 
-				info!("Ascertained that this EndpointSlice seems to be a product of a NAIS app");
 				if endpointslice_is_ready(&endpoint_slice) {
 					warn!("Nais app is alive!!!");
 				} else {
