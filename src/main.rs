@@ -8,7 +8,7 @@ use kube::{
 	runtime::{watcher, WatchStreamExt},
 	Client,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, warn, Span};
 
 mod endpoint_slice;
 use crate::endpoint_slice::{
@@ -23,21 +23,19 @@ use crate::endpoint_slice::{
 fn get_nais_app(
 	nais_app: Result<Option<DynamicObject>, kube::Error>,
 	nais_gvk: &GroupVersionKind,
-	namespace: &str,
+	parent_span: &tracing::Span,
 ) -> Option<DynamicObject> {
+	Span::current().follows_from(parent_span);
 	match nais_app {
 		Err(e) => {
-			error!(?nais_gvk, %namespace, ?e, "Error occurred when attempting to fetch NAIS app");
-			// return Err(e); // TODO: Fix this so backoff can handle it
+			error!(
+				?nais_gvk,
+				?e,
+				"Error occurred when attempting to fetch NAIS app"
+			);
 			None
 		},
-		Ok(found_app) => {
-			let Some(_) = found_app else {
-				warn!(?nais_gvk, %namespace, "Unable to find any NAIS app");
-				return None;
-			};
-			found_app
-		},
+		Ok(found_app) => found_app,
 	}
 }
 
@@ -87,6 +85,7 @@ async fn main() -> eyre::Result<()> {
 	let client = Client::try_default().await?;
 	let nais_gvk = GroupVersionKind::gvk("nais.io", "v1alpha1", "Application");
 	let (nais_crd, _api_caps) = kube::discovery::pinned_kind(&client, &nais_gvk).await?;
+	let main_span = Span::current();
 
 	watcher(Api::<EndpointSlice>::all(client.clone()), wc)
 		.applied_objects()
@@ -97,48 +96,61 @@ async fn main() -> eyre::Result<()> {
 			let client = client.clone();
 			let nais_crd = nais_crd.clone();
 			let nais_gvk = nais_gvk.clone();
+
+			// Leverage tracing module's `Span`s logging functionality
+			let outer_loop_log_span = Span::current();
+			outer_loop_log_span.follows_from(&main_span);
+			outer_loop_log_span.record("endpoint_slice_name", &endpoint_slice.name_any());
 			async move {
-				let endpoint_slice_name = endpoint_slice.name_any();
+				Span::current().follows_from(outer_loop_log_span);
+				info!("Starting to look at endpoint");
+
 				let Some(namespace) = endpoint_slice.namespace() else {
-					// Something went horribly wrong when we cannot ascertain the namespace
-					//   for the given EndpointSlice
-					error!(%endpoint_slice_name, "Unable to ascertain namespace of endpoint_slice");
+					// All `EndpointSlice`s should belong to a namespace...
+					error!("Unable to ascertain namespace of endpoint_slice");
 					return Ok(());
 				};
-				info!(%namespace, %endpoint_slice_name, "Starting to look at endpoint");
+				Span::current().record("namespace", &namespace);
 
-				let (app_name, team_name) = match extract_team_and_app_labels(&endpoint_slice) {
-					(Some(app), Some(team)) => (app, team),
-					(app, team) => {
-						if app.is_none() {warn!(%namespace, ?endpoint_slice, "Unable to find `app` label on EndpointSlice");}
-						if team.is_none() {warn!(%namespace, ?endpoint_slice, "Unable to find `team` label on EndpointSlice");}
-						return Ok(());
-					},
+				let Some((app_name, team_name)) =
+					extract_team_and_app_labels(&endpoint_slice, &Span::current())
+				else {
+					warn!("Unable to fetch required labels on EndpointsSlice");
+					return Ok(());
 				};
+				Span::current().record("app_name", &app_name);
+				Span::current().record("team_name", &team_name);
 				if namespace != team_name {
-					warn!(%team_name, %namespace, "`team_name` label does not match namespace");
+					warn!("`team` label does not match namespace");
 					// TODO: Decide if we care enough to do anything about this
 				}
 
-				debug!(%team_name, %app_name, "Checking owner reference(s)");
-				let has_expected_owner = has_service_owner(&endpoint_slice, &app_name);
+				debug!("Checking owner reference(s)");
+				let has_expected_owner =
+					has_service_owner(&endpoint_slice, &app_name, &Span::current());
 				if !has_expected_owner {
-					// This is not an endpoint generated for a service, we should not care.
+					warn!("EndpointSlice does not have expected Service owner reference");
 					return Ok(());
 				};
+
 				if get_nais_app(
 					Api::<DynamicObject>::namespaced_with(client, &namespace, &nais_crd)
 						.get_opt(&app_name)
 						.await,
 					&nais_gvk,
-					&namespace
-				).is_none() { return Ok(()); }
+					&Span::current(),
+				)
+				.is_none()
+				{
+					warn!("Unable to find any expected NAIS app");
+					return Ok(());
+				};
 
-				info!(%namespace, %app_name, %endpoint_slice_name, "Ascertained that this EndpointSlice seems to be a product of a NAIS app");
+				info!("Ascertained that this EndpointSlice seems to be a product of a NAIS app");
 				if endpointslice_is_ready(&endpoint_slice) {
-					warn!(%namespace, %app_name, "Nais app is alive!!!");
+					warn!("Nais app is alive!!!");
 				} else {
-					warn!(%namespace, %app_name, "Nais app is dead!!!");
+					warn!("Nais app is dead!!!");
 				}
 				// TODO: Send http request to the statusplattform backend API w/reqwest
 				todo!();
