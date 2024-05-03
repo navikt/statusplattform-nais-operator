@@ -61,17 +61,18 @@
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
         # Compile workspace code (including 3rd party dependencies)
+        cargo-doc = craneLib.cargoDoc (commonArgs // {inherit cargoArtifacts;});
         cargo-package = craneLib.buildPackage (commonArgs // {inherit cargoArtifacts;});
       in {
         checks = {
-          inherit cargo-package;
+          inherit cargo-package cargo-doc;
           # Run clippy (and deny all warnings) on the crate source,
           # again, resuing the dependency artifacts from above.
           #
           # Note that this is done as a separate derivation so that
           # we can block the CI if there are issues here, but not
           # prevent downstream consumers from building our crate by itself.
-          my-crate-clippy = craneLib.cargoClippy (
+          cargo-clippy = craneLib.cargoClippy (
             commonArgs
             // {
               inherit cargoArtifacts;
@@ -79,21 +80,17 @@
             }
           );
 
-          my-crate-doc = craneLib.cargoDoc (commonArgs // {inherit cargoArtifacts;});
+          cargo-fmt = craneLib.cargoFmt {inherit src;};
 
-          # Check formatting
-          my-crate-fmt = craneLib.cargoFmt {inherit src;};
-
-          # Audit dependencies
-          my-crate-audit = craneLib.cargoAudit {
+          cargo-audit = craneLib.cargoAudit {
             inherit (inputs) advisory-db;
             inherit src;
           };
 
           # Run tests with cargo-nextest
-          # Consider setting `doCheck = false` on `my-crate` if you do not want
+          # Consider setting `doCheck = false` on `cargo-package` if you do not want
           # the tests to run twice
-          # my-crate-nextest = craneLib.cargoNextest (commonArgs // {
+          # cargo-nextest = craneLib.cargoNextest (commonArgs // {
           #   inherit cargoArtifacts;
           #   partitions = 1;
           #   partitionType = "count";
