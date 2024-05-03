@@ -1,6 +1,7 @@
 //! This module contains `k8s_openapi::api::discovery::v1::EndpointSlice` utility functions
 use crate::EndpointSlice;
 
+use color_eyre::eyre;
 use k8s_openapi::Metadata;
 use kube::ResourceExt;
 

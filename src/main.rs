@@ -1,5 +1,6 @@
 use std::{collections::HashSet, env};
 
+use color_eyre::eyre;
 use futures::TryStreamExt;
 use k8s_openapi::api::discovery::v1::EndpointSlice;
 use kube::{
@@ -19,23 +20,23 @@ use crate::endpoint_slice::{
 ///    - of the same name as the `EndpointSlice`'s `app` label
 ///  This function returns true if and only if such a NAIS app is found in the
 ///   same namespace as the `EndpointSlice`
-fn matching_nais_app_found(
+fn get_nais_app(
 	nais_app: Result<Option<DynamicObject>, kube::Error>,
 	nais_gvk: &GroupVersionKind,
 	namespace: &str,
-) -> bool {
+) -> Option<DynamicObject> {
 	match nais_app {
 		Err(e) => {
 			error!(?nais_gvk, %namespace, ?e, "Error occurred when attempting to fetch NAIS app");
 			// return Err(e); // TODO: Fix this so backoff can handle it
-			false
+			None
 		},
 		Ok(found_app) => {
 			let Some(_) = found_app else {
 				warn!(?nais_gvk, %namespace, "Unable to find any NAIS app");
-				return false;
+				return None;
 			};
-			true
+			found_app
 		},
 	}
 }
@@ -70,7 +71,7 @@ fn collate_excluded_namespaces(env_vars: &[&str]) -> String {
 }
 
 #[tokio::main]
-async fn main() -> color_eyre::eyre::Result<()> {
+async fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	tracing_subscriber::fmt::init();
 
@@ -88,6 +89,7 @@ async fn main() -> color_eyre::eyre::Result<()> {
 	watcher(Api::<EndpointSlice>::all(client.clone()), wc)
 		.applied_objects()
 		.default_backoff()
+		.map_err(eyre::Error::from)
 		.try_for_each(|endpoint_slice| {
 			// Move these into scope of `.try_for_each()`'s async closure
 			let client = client.clone();
@@ -122,13 +124,13 @@ async fn main() -> color_eyre::eyre::Result<()> {
 					// This is not an endpoint generated for a service, we should not care.
 					return Ok(());
 				};
-				if !matching_nais_app_found(
+				if get_nais_app(
 					Api::<DynamicObject>::namespaced_with(client, &namespace, &nais_crd)
 						.get_opt(&app_name)
 						.await,
 					&nais_gvk,
 					&namespace
-				) { return Ok(()); }
+				).is_none() { return Ok(()); }
 
 				info!(%namespace, %app_name, %endpoint_slice_name, "Ascertained that this EndpointSlice seems to be a product of a NAIS app");
 				if endpointslice_is_ready(&endpoint_slice) {
