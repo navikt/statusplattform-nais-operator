@@ -60,11 +60,25 @@
         # Compile (and cache) cargo dependencies _only_
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
+        cargo-sbom = craneLib.mkCargoDerivation (commonArgs
+          // {
+            # Require the caller to specify cargoArtifacts we can use
+            inherit cargoArtifacts;
+
+            # A suffix name used by the derivation, useful for logging
+            pnameSuffix = "-sbom";
+
+            # Set the cargo command we will use and pass through the flags
+            installPhase = "mv bom.json $out";
+            buildPhaseCargoCommand = "cargo cyclonedx -f json --all --override-filename bom";
+            nativeBuildInputs = (commonArgs.nativeBuildInputs or []) ++ [pkgs.cargo-cyclonedx];
+          });
+
         # Compile workspace code (including 3rd party dependencies)
         cargo-package = craneLib.buildPackage (commonArgs // {inherit cargoArtifacts;});
       in {
         checks = {
-          inherit cargo-package;
+          inherit cargo-package cargo-sbom;
           # Run clippy (and deny all warnings) on the crate source,
           # again, resuing the dependency artifacts from above.
           #
@@ -124,6 +138,7 @@
         packages = rec {
           default = rust;
           rust = cargo-package;
+          sbom = cargo-sbom;
           docker = pkgs.dockerTools.buildImage {
             name = pname;
             tag = "v${cargoDetails.package.version}";
