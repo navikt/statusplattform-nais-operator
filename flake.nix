@@ -30,6 +30,7 @@
           inherit system;
           overlays = [(import inputs.rust-overlay)];
         };
+        inherit (pkgs) lib;
 
         # Target musl when building on 64-bit linux to create statically linked binaries
         # Set-up build dependencies and configure rust for statically lined binaries
@@ -89,7 +90,19 @@
             commonArgs
             // {
               inherit cargoArtifacts;
-              cargoClippyExtraArgs = "--all-targets -- --deny warnings";
+              cargoClippyExtraArgs = lib.concatStringsSep " " [
+                "--all-targets"
+                "--"
+                "--deny warnings"
+                "-W"
+                "clippy::pedantic"
+                "-W"
+                "clippy::nursery"
+                "-W"
+                "clippy::unwrap_used"
+                "-W"
+                "clippy::expect_used"
+              ];
             }
           );
           cargo-doc = craneLib.cargoDoc (commonArgs
