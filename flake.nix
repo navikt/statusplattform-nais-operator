@@ -61,11 +61,10 @@
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
         # Compile workspace code (including 3rd party dependencies)
-        cargo-doc = craneLib.cargoDoc (commonArgs // {inherit cargoArtifacts;});
         cargo-package = craneLib.buildPackage (commonArgs // {inherit cargoArtifacts;});
       in {
         checks = {
-          inherit cargo-package cargo-doc;
+          inherit cargo-package;
           # Run clippy (and deny all warnings) on the crate source,
           # again, resuing the dependency artifacts from above.
           #
@@ -79,14 +78,19 @@
               cargoClippyExtraArgs = "--all-targets -- --deny warnings";
             }
           );
-
+          cargo-doc = craneLib.cargoDoc (commonArgs
+            // {
+              inherit cargoArtifacts;
+              preInstall = ''
+                # TODO: Remove when/if https://github.com/ipetkov/crane/pull/603 gets accepted
+                ln -sT "''${CARGO_TARGET_DIR:-target}/''${CARGO_BUILD_TARGET:-}/doc" "''${CARGO_TARGET_DIR:-target}/doc"
+              '';
+            });
           cargo-fmt = craneLib.cargoFmt {inherit src;};
-
           cargo-audit = craneLib.cargoAudit {
             inherit (inputs) advisory-db;
             inherit src;
           };
-
           # Run tests with cargo-nextest
           # Consider setting `doCheck = false` on `cargo-package` if you do not want
           # the tests to run twice
