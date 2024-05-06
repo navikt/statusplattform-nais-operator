@@ -27,6 +27,7 @@ fn collate_excluded_namespaces(env_vars: &[&str]) -> String {
 			}
 			env_val
 				.split(',')
+				.filter(|s| !s.is_empty())
 				.map(|ns| format!("namespace!={ns}"))
 				.collect()
 		})
