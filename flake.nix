@@ -105,14 +105,7 @@
               ];
             }
           );
-          cargo-doc = craneLib.cargoDoc (commonArgs
-            // {
-              inherit cargoArtifacts;
-              preInstall = ''
-                # TODO: Remove when/if https://github.com/ipetkov/crane/pull/603 gets accepted
-                ln -sT "''${CARGO_TARGET_DIR:-target}/''${CARGO_BUILD_TARGET:-}/doc" "''${CARGO_TARGET_DIR:-target}/doc"
-              '';
-            });
+          cargo-doc = craneLib.cargoDoc (commonArgs // {inherit cargoArtifacts;});
           cargo-fmt = craneLib.cargoFmt {inherit src;};
           cargo-audit = craneLib.cargoAudit {
             inherit (inputs) advisory-db;
