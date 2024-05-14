@@ -2,7 +2,7 @@
   description = "A Nix-flake based development interface for NAV's Statusplattform's K8s operator";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
 
     # Rust compile stuff
