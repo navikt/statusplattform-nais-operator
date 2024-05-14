@@ -7,8 +7,6 @@ use tracing::warn;
 mod logging;
 mod operator;
 
-// TODO: Remove clippy exception once we figure out how to perform the filtering
-#[allow(dead_code)]
 /// Exclude namespaces that contain NAIS app services we don't care about.
 ///   Will:
 ///    - expect comma-separated string lists in environment variable names supplied

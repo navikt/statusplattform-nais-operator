@@ -153,12 +153,14 @@ fn init(
 		})
 }
 
+// TODO: Remove when namespaces are filtered
+#[allow(unused_variables)]
 /// Sets up, starts, and runs an (eternally running) `kube::runtime::watcher`
 ///
 /// # Errors
 ///
 /// This function will return an error if the watcher returns an error it cannot backoff retry from.
-pub fn run(_excluded_namespaces: &str) -> impl Future<Output = eyre::Result<()>> {
+pub fn run(excluded_namespaces: &str) -> impl Future<Output = eyre::Result<()>> {
 	// We want to filter:
 	// - away resources w/o the labels we require
 	// - away resources belonging to certain namespaces (TODO)
