@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+axum = "0.7.5"
 color-eyre = "0.6.3"
 futures = { version = "0.3.30", features = ["async-await"] }
 k8s-openapi = { version = "0.21.1", features = ["v1_28"] }

@@ -1,5 +1,6 @@
 use std::{collections::HashSet, env};
 
+use axum::{routing, Router};
 use color_eyre::eyre;
 use k8s_openapi::api::discovery::v1::EndpointSlice;
 use tracing::warn;
@@ -42,6 +43,24 @@ async fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	logging::init();
 
-	operator::run(&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"])).await?;
-	Ok(())
+	// TODO: Sanitize log output which is too verbose
+	// TODO: Allow operator to control is_ready status supplied by webserver
+	// TODO: Switch which of the two runs in separate thread, so as to ensure all threads die if operator dies
+
+	// Ensure port is available
+	let socket = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+
+	// Start k8s operator
+	tokio::spawn(operator::run(&collate_excluded_namespaces(&[
+		"PLATFORM_NAMESPACES",
+	])));
+
+	// Start webserver
+	// TODO: Conside offering metrics/prometheus scraping endpoint
+	let webapp = Router::new()
+		.route("/health/ready", routing::get(|| async { todo!() }))
+		.route("/health/alive", routing::get(|| async { todo!() }));
+	axum::serve(socket, webapp.into_make_service())
+		.await
+		.map_err(eyre::Error::from)
 }
