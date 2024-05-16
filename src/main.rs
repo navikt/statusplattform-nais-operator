@@ -43,23 +43,22 @@ async fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	logging::init();
 
-	// TODO: Allow operator to control is_ready status supplied by webserver
-	// TODO: Switch which of the two runs in separate thread, so as to ensure all threads die if operator dies
-
 	// Ensure port is available
 	let socket = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+	// Start webserver in sibling thread, so that if the main thread "dies"/stops, this gets cleaned up
+	tokio::spawn(async {
+		axum::serve(
+			socket,
+			Router::new()
+				// TODO: Consider offering metrics/prometheus scraping endpoint
+				// TODO: Allow operator to control is_ready status supplied by webserver
+				.route("/health/ready", routing::get(|| async { todo!() }))
+				.route("/health/alive", routing::get(|| async { "I'm alive!" }))
+				.into_make_service(),
+		)
+	});
 
 	// Start k8s operator
-	tokio::spawn(operator::run(&collate_excluded_namespaces(&[
-		"PLATFORM_NAMESPACES",
-	])));
-
-	// Start webserver
-	// TODO: Conside offering metrics/prometheus scraping endpoint
-	let webapp = Router::new()
-		.route("/health/ready", routing::get(|| async { todo!() }))
-		.route("/health/alive", routing::get(|| async { todo!() }));
-	axum::serve(socket, webapp.into_make_service())
-		.await
-		.map_err(eyre::Error::from)
+	operator::run(&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"])).await
+	// futures::future::pending::<()>().await; // Functionally/spiritually equivalent of above line
 }
