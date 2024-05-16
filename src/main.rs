@@ -43,7 +43,6 @@ async fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	logging::init();
 
-	// TODO: Sanitize log output which is too verbose
 	// TODO: Allow operator to control is_ready status supplied by webserver
 	// TODO: Switch which of the two runs in separate thread, so as to ensure all threads die if operator dies
 

@@ -9,6 +9,8 @@ pub fn init() {
 	} else {
 		(None, Some(layer_fmt::layer().json().flatten_event(true)))
 	};
+
+	// TODO: Sanitize log output which is too verbose
 	Registry::default()
 		// .with(otel_layer) // TODO
 		.with(plain_log_format)
