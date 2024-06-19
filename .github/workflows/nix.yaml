@@ -1,0 +1,22 @@
+name: build
+on: push
+
+jobs:
+  build: # building is also testing.
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      packages: "write"
+      contents: "read"
+      id-token: "write"
+    steps:
+      - name: nix-build
+        uses: nais/nais-nix-action@main
+        id: nix-build
+        with:
+          team: navdig
+          identity_provider: ${{ secrets.NAIS_WORKLOAD_IDENTITY_PROVIDER }}
+          project_id: ${{ vars.NAIS_MANAGEMENT_PROJECT_ID }}
+
+    outputs:
+      image: ${{ steps.nix-build.outputs.image }}
