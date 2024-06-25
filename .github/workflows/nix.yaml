@@ -22,6 +22,7 @@ jobs:
       image: ${{ steps.nix-build.outputs.image }}
   deploy:
     name: deploy-dev
+    depends-on: build
     runs-on: ubuntu-latest
     permissions:
       contents: "read"
@@ -33,5 +34,5 @@ jobs:
         env:
           IMAGE: ${{ steps.build.outputs.image }}
           CLUSTER: dev-gcp
-          RESOURCE: ./nais.yaml
+          RESOURCE: ./nais.yml
           VAR: image=${{ needs.build.outputs.image }}
