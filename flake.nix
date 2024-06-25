@@ -54,9 +54,9 @@
         commonArgs = {
           inherit pname src CARGO_BUILD_TARGET;
           nativeBuildInputs = with pkgs;
-            [ pkg-config ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-              pkgs.darwin.apple_sdk.frameworks.Security
-              pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            [ pkg-config ] ++ lib.optionals stdenv.isDarwin [
+              darwin.apple_sdk.frameworks.Security
+              darwin.apple_sdk.frameworks.SystemConfiguration
             ];
 
         };
@@ -137,9 +137,9 @@
               helix
               lldb
               rust-analyzer
-            ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-              pkgs.darwin.apple_sdk.frameworks.Security
-              pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            ] ++ lib.optionals stdenv.isDarwin [
+              darwin.apple_sdk.frameworks.Security
+              darwin.apple_sdk.frameworks.SystemConfiguration
             ];
 
           shellHook = ''
@@ -152,6 +152,7 @@
           default = rust;
           rust = cargo-package;
           sbom = cargo-sbom;
+          image = docker;
           docker = pkgs.dockerTools.buildImage {
             name = pname;
             tag = "v${cargoDetails.package.version}";
