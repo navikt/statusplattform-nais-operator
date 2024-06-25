@@ -20,3 +20,13 @@ jobs:
 
     outputs:
       image: ${{ steps.nix-build.outputs.image }}
+  deploy:
+    steps:
+      - uses: actions/checkout@v3
+      - name: Deploy
+        uses: nais/deploy/actions/deploy@v2
+        env:
+          IMAGE: ${{ steps.build.outputs.image }}
+          CLUSTER: dev-gcp
+          RESOURCE: ./nais.yaml
+          VAR: image=${{ needs.build.outputs.image }}
