@@ -156,10 +156,7 @@
           docker = pkgs.dockerTools.buildImage {
             name = pname;
             tag = "v${cargoDetails.package.version}";
-            config = {
-              Cmd = "--help";
-              Entrypoint = [ "${cargo-package}/bin/${pname}" ];
-            };
+            config = { Entrypoint = [ "${cargo-package}/bin/${pname}" ]; };
           };
         };
 
