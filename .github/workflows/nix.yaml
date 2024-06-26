@@ -11,7 +11,7 @@ jobs:
       id-token: "write"
     steps:
       - name: nix-build
-        uses: nais/nais-nix-action@main
+        uses: nais/nais-nix-action@lets-be-weird
         id: nix-build
         with:
           team: navdig
@@ -20,19 +20,19 @@ jobs:
 
     outputs:
       image: ${{ steps.nix-build.outputs.image }}
-  deploy:
-    name: deploy-dev
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: "read"
-      id-token: "write"
-    steps:
-      - uses: actions/checkout@v3
-      - name: Deploy
-        uses: nais/deploy/actions/deploy@v2
-        env:
-          IMAGE: ${{ steps.build.outputs.image }}
-          CLUSTER: dev-gcp
-          RESOURCE: ./nais.yml
-          VAR: image=${{ needs.build.outputs.image }}
+  # deploy:
+  #   name: deploy-dev
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: "read"
+  #     id-token: "write"
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - name: Deploy
+  #       uses: nais/deploy/actions/deploy@v2
+  #       env:
+  #         IMAGE: ${{ steps.build.outputs.image }}
+  #         CLUSTER: dev-gcp
+  #         RESOURCE: ./nais.yml
+  #         VAR: image=${{ needs.build.outputs.image }}
