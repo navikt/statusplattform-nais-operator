@@ -11,6 +11,7 @@ use kube::{
 use tracing::{debug, error, info, warn, Span};
 
 mod endpoint_slice;
+mod java_dto;
 use crate::operator::endpoint_slice::{
 	endpointslice_is_ready, extract_team_and_app_labels, has_service_owner,
 };
