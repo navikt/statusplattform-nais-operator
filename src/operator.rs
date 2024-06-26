@@ -106,7 +106,8 @@ async fn endpoint_slice_handler(
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
 	// TODO: We explicit create a new client, use it and discard it. Expensive.
-	let client = reqwest::Client::new();
+    let client = reqwest::Client::new();
+    let id = client.get("https://portal-server/service")
 	if endpointslice_is_ready(&endpoint_slice) {
 		let res = client
 			.post("https://portal-server")

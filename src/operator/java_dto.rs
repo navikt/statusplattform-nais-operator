@@ -11,14 +11,35 @@ struct JavaDto {
 
 #[derive(Serialize, Deserialize)]
 enum RecordSourceDto {
-	Prometheus,
-	Obm,
+	#[serde(rename(serialize = "GCP_POLL", deserialize = "GCP_POLL"))]
 	GcpPoll,
-	OnPremPoll,
+	// OnPremPoll, -- these never exist to us since we only do gcp
+	// Prometheus,
+	// Obm,
 }
 
 #[derive(Serialize, Deserialize)]
 enum StatusDto {
-	Ok,
-	Down,
+	// these have weird capitalization because the other end is weird.
+	OK,
+	DOWN,
+}
+enum AreaDto {}
+
+struct ServiceDto {
+	name: String,
+	id: uuid::Uuid,
+	service_type: Option<ServiceTypeDto>,
+	team: String,
+	team_id: uuid::Uuid,
+	service_dependencies: Vec<ServiceDto>,
+	component_dependencies: Vec<ServiceDto>,
+	areas_containing_this_service: Vec<AreaDto>,
+	services_dependent_on_this_component: Vec<ServiceDto>,
+	oh_display: OHdisplayDto,
+	monitorlink: String,
+	polling_url: String,
+	polling_on_prem: Boolean,
+	record: RecordDto,
+	status_not_from_team: Boolean,
 }
