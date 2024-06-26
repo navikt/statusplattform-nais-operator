@@ -6,6 +6,13 @@ metadata:
   labels:
     team: navdig
 spec:
+  env:
+    - name: RUST_BACKTRACE
+      value: full
+    - name: RUST_LOG
+      value: kube=debug
+    - name:  COLORBT_SHOW_HIDDEN
+      value: 1
   image: {{ image }}
   port: 8080
   replicas:
