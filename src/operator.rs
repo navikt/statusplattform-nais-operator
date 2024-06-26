@@ -50,7 +50,7 @@ fn get_nais_app(
 /// # Errors
 ///
 /// This function will return an error if it encounters a situation we believe should never happen.
-async fn inner_loop(
+async fn endpoint_slice_handler(
 	endpoint_slice: EndpointSlice,
 	client: Client,
 	nais_crds: ApiResource,
@@ -104,14 +104,22 @@ async fn inner_loop(
 	};
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
+	// TODO: We explicit create a new client, use it and discard it. Expensive.
+	let client = reqwest::Client::new();
 	if endpointslice_is_ready(&endpoint_slice) {
-		warn!("Nais app is alive!!!");
+		let res = client
+			.post("https://portal-server")
+			.body("the exact body that is sent")
+			.send()
+			.await?;
 	} else {
-		warn!("Nais app is dead!!!");
+		let res = client
+			.post("https://portal-server")
+			.body("the exact body that is sent")
+			.send()
+			.await?;
 	}
-	// TODO: Send http request to the statusplattform backend API w/reqwest
-	todo!();
-	// Ok(()) // TODO: Comment back in when removing above todo!()
+	Ok(())
 }
 
 /// Starts the (ideally eternally running) `kube::runtime::watcher` with the supplied variables required.
@@ -141,7 +149,7 @@ fn init(
 			outer_loop_log_span.follows_from(&main_span);
 			outer_loop_log_span.record("endpoint_slice_name", &endpoint_slice.name_any());
 			async move {
-				inner_loop(
+				endpoint_slice_handler(
 					endpoint_slice,
 					client,
 					nais_apps,
