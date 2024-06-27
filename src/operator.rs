@@ -8,6 +8,7 @@ use kube::{
 	runtime::{watcher, WatchStreamExt},
 	Api, Client, ResourceExt,
 };
+use tokio::sync::watch::Sender;
 use tracing::{debug, error, info, warn, Span};
 
 mod endpoint_slice;
@@ -130,6 +131,7 @@ async fn endpoint_slice_handler(
 ///
 /// This function will return an error if the watcher returns an error it cannot recover from.
 fn init(
+	ready_tx: Sender<bool>,
 	client: Client,
 	nais_apps: ApiResource,
 	nais_gvk: GroupVersionKind,
@@ -170,7 +172,10 @@ fn init(
 /// # Errors
 ///
 /// This function will return an error if the watcher returns an error it cannot backoff retry from.
-pub fn run(excluded_namespaces: &str) -> impl Future<Output = eyre::Result<()>> {
+pub fn run(
+	excluded_namespaces: &str,
+	ready_tx: tokio::sync::watch::Sender<bool>,
+) -> impl Future<Output = eyre::Result<()>> {
 	// We want to filter:
 	// - away resources w/o the labels we require
 	// - away resources belonging to certain namespaces (TODO)
@@ -182,8 +187,20 @@ pub fn run(excluded_namespaces: &str) -> impl Future<Output = eyre::Result<()>> 
 	let main_span = Span::current();
 
 	async move {
-		let client = Client::try_default().await?;
+		let client = match Client::try_default().await {
+			Ok(client) => {
+				if let Err(e) = ready_tx.send(true) {
+					return Err(eyre::eyre!("Failed to send ready signal: {:?}", e));
+				}
+				client
+			},
+			Err(e) => {
+				error!("Failed to create client: {:?}", e);
+				return Err(eyre::eyre!("Failed to create client: {:?}", e));
+			},
+		};
+
 		let (nais_crd, _) = kube::discovery::pinned_kind(&client, &nais_gvk).await?;
-		init(client, nais_crd, nais_gvk, main_span, wc).await
+		init(ready_tx, client, nais_crd, nais_gvk, main_span, wc).await
 	}
 }

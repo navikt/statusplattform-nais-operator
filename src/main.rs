@@ -3,6 +3,7 @@ use std::{collections::HashSet, env};
 use axum::{routing, Router};
 use color_eyre::eyre;
 use k8s_openapi::api::discovery::v1::EndpointSlice;
+use reqwest::StatusCode;
 use tracing::warn;
 
 mod logging;
@@ -43,6 +44,8 @@ async fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	logging::init();
 
+	let (ready_tx, ready_rx) = tokio::sync::watch::channel(false);
+
 	// Ensure port is available
 	let socket = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
 	// Start webserver in sibling thread, so that if the main thread "dies"/stops, this gets cleaned up
@@ -50,15 +53,29 @@ async fn main() -> eyre::Result<()> {
 		axum::serve(
 			socket,
 			Router::new()
+                                // V-- Metrics endpoint should be on hold until the otel-metrics stuff hits 1.0
 				// TODO: Consider offering metrics/prometheus scraping endpoint
 				// TODO: Allow operator to control is_ready status supplied by webserver
-				.route("/health/ready", routing::get(|| async { todo!() }))
+			        .route("/health/ready", axum::routing::get(move || {
+					let ready_rx = ready_rx.clone();
+					async move {
+						if *ready_rx.borrow() {
+					       	    StatusCode::OK
+						} else {
+                                 			StatusCode::SERVICE_UNAVAILABLE
+						}
+					}
+				}))
 				.route("/health/alive", routing::get(|| async { "I'm alive!" }))
 				.into_make_service(),
 		)
 	});
 
 	// Start k8s operator
-	operator::run(&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"])).await
+	operator::run(
+		&collate_excluded_namespaces(&["PLATFORM_NAMESPACES"]),
+		ready_tx,
+	)
+	.await
 	// futures::future::pending::<()>().await; // Functionally/spiritually equivalent of above line
 }
