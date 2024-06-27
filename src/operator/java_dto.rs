@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
-struct JavaDto {
+struct RecordDto {
+	// ^ sic! that's the name elsewhere
 	id: uuid::Uuid,
 	service_id: uuid::Uuid,
 	status: StatusDto,
@@ -29,17 +30,17 @@ enum AreaDto {}
 struct ServiceDto {
 	name: String,
 	id: uuid::Uuid,
-	service_type: Option<ServiceTypeDto>,
+	//	service_type: Option<ServiceTypeDto>,
 	team: String,
 	team_id: uuid::Uuid,
-	service_dependencies: Vec<ServiceDto>,
-	component_dependencies: Vec<ServiceDto>,
-	areas_containing_this_service: Vec<AreaDto>,
-	services_dependent_on_this_component: Vec<ServiceDto>,
-	oh_display: OHdisplayDto,
-	monitorlink: String,
-	polling_url: String,
-	polling_on_prem: Boolean,
+	//	service_dependencies: Vec<ServiceDto>,
+	//	component_dependencies: Vec<ServiceDto>,
+	//	areas_containing_this_service: Vec<AreaDto>,
+	//	services_dependent_on_this_component: Vec<ServiceDto>,
+	//	oh_display: OHdisplayDto,
+	//	monitorlink: String,
+	//	polling_url: String,
+	polling_on_prem: bool,
 	record: RecordDto,
-	status_not_from_team: Boolean,
+	status_not_from_team: bool,
 }
