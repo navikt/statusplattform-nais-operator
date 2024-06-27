@@ -41,7 +41,6 @@ fn get_nais_app(
 }
 
 /// The "inner"/"hot loop" of this k8s operator.
-/// In other words, where the important shit happens.
 ///
 /// It looks at each `EndpointSlice`, and
 /// 1. Finds metadata re. the `EndpointSlice`
@@ -106,21 +105,22 @@ async fn endpoint_slice_handler(
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
 	// TODO: We explicit create a new client, use it and discard it. Expensive.
-    let client = reqwest::Client::new();
-    let id = client.get("https://portal-server/service")
-	if endpointslice_is_ready(&endpoint_slice) {
-		let res = client
-			.post("https://portal-server")
-			.body("the exact body that is sent")
-			.send()
-			.await?;
+	// and should be moved up to main, maybe with a client pool.
+	let client = reqwest::Client::new();
+
+	client.get("https://portal-server");
+	let body = if endpointslice_is_ready(&endpoint_slice) {
+		"NAIS app is ready for traffic"
 	} else {
-		let res = client
-			.post("https://portal-server")
-			.body("the exact body that is sent")
-			.send()
-			.await?;
-	}
+		"NAIS app is not ready for traffic"
+	};
+
+	client
+		.post("https://portal-server")
+		.body(body)
+		.send()
+		.await?
+		.error_for_status()?; // Ensures the response is successful
 	Ok(())
 }
 
