@@ -108,7 +108,7 @@ async fn endpoint_slice_handler(
 	// and should be moved up to main, maybe with a client pool.
 	let client = reqwest::Client::new();
 
-	client.get("https://portal-server");
+	let _ = client.get("https://portalserver").send().await?;
 	let body = if endpointslice_is_ready(&endpoint_slice) {
 		"NAIS app is ready for traffic"
 	} else {
@@ -116,7 +116,7 @@ async fn endpoint_slice_handler(
 	};
 
 	client
-		.post("https://portal-server")
+		.post("https://portalserver")
 		.body(body)
 		.send()
 		.await?
