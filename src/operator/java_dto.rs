@@ -12,7 +12,7 @@ struct RecordDto {
 
 #[derive(Serialize, Deserialize)]
 enum RecordSourceDto {
-	#[serde(rename(serialize = "GCP_POLL", deserialize = "GCP_POLL"))]
+	#[serde(rename(serialize = "GCP_POLL"))]
 	GcpPoll,
 	// OnPremPoll, -- these never exist to us since we only do gcp
 	// Prometheus,
@@ -25,6 +25,7 @@ enum StatusDto {
 	OK,
 	DOWN,
 }
+
 enum AreaDto {}
 
 struct ServiceDto {

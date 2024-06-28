@@ -8,7 +8,6 @@ use kube::{
 	runtime::{watcher, WatchStreamExt},
 	Api, Client, ResourceExt,
 };
-use tokio::sync::watch::Sender;
 use tracing::{debug, error, info, warn, Span};
 
 mod endpoint_slice;
@@ -80,11 +79,6 @@ async fn endpoint_slice_handler(
 	Span::current().record("team_name", &team_name);
 	debug!("Found required labels on EndpointSlice");
 
-	if namespace != team_name {
-		warn!("`team` label does not match namespace");
-		// TODO: Decide if we care enough to do anything about this
-	}
-
 	let has_expected_owner = has_service_owner(&endpoint_slice, &app_name, &Span::current());
 	if !has_expected_owner {
 		warn!("EndpointSlice does not have expected Service owner reference");
@@ -131,7 +125,6 @@ async fn endpoint_slice_handler(
 ///
 /// This function will return an error if the watcher returns an error it cannot recover from.
 fn init(
-	ready_tx: Sender<bool>,
 	client: Client,
 	nais_apps: ApiResource,
 	nais_gvk: GroupVersionKind,
@@ -204,6 +197,6 @@ pub fn run(
 		};
 
 		let (nais_crd, _) = kube::discovery::pinned_kind(&client, &nais_gvk).await?;
-		init(ready_tx, client, nais_crd, nais_gvk, main_span, wc).await
+		init(client, nais_crd, nais_gvk, main_span, wc).await
 	}
 }
