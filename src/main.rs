@@ -57,7 +57,6 @@ async fn main() -> eyre::Result<()> {
 				// TODO: Consider offering metrics/prometheus scraping endpoint
 				// TODO: Allow operator to control is_ready status supplied by webserver
 			        .route("/health/ready", axum::routing::get(move || {
-					let ready_rx = ready_rx.clone();
 					async move {
 						if *ready_rx.borrow() {
 					       	    StatusCode::OK
