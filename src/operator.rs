@@ -100,22 +100,21 @@ async fn endpoint_slice_handler(
 	};
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
-	// TODO: We explicit create a new client, use it and discard it. Expensive.
-	// and should be moved up to main, maybe with a client pool.
-
+	// V- TODO: use the correct endpoint, once the accesspolicy patch is merged
 	let _ = reqwest_client.get("https://portalserver").send().await?;
 	let body = if endpointslice_is_ready(&endpoint_slice) {
+		// V- TODO: Construct a correct body with DOWN/OK for the cases as appropriate.
 		"NAIS app is ready for traffic"
 	} else {
 		"NAIS app is not ready for traffic"
 	};
 
-	reqwest_client
+	reqwest_client // TODO: Use the correct endpoint
 		.post("https://portalserver")
 		.body(body)
 		.send()
 		.await?
-		.error_for_status()?; // Ensures the response is successful
+		.error_for_status()?;
 	Ok(())
 }
 
