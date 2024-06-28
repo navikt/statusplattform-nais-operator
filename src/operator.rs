@@ -54,6 +54,7 @@ fn get_nais_app(
 async fn endpoint_slice_handler(
 	endpoint_slice: EndpointSlice,
 	client: Client,
+	reqwest_client: reqwest::Client,
 	nais_crds: ApiResource,
 	nais_gvk: &GroupVersionKind,
 	parent_span: &Span,
@@ -107,16 +108,15 @@ async fn endpoint_slice_handler(
 
 	// TODO: We explicit create a new client, use it and discard it. Expensive.
 	// and should be moved up to main, maybe with a client pool.
-	let client = reqwest::Client::new();
 
-	let _ = client.get("https://portalserver").send().await?;
+	let _ = reqwest_client.get("https://portalserver").send().await?;
 	let body = if endpointslice_is_ready(&endpoint_slice) {
 		"NAIS app is ready for traffic"
 	} else {
 		"NAIS app is not ready for traffic"
 	};
 
-	client
+	reqwest_client
 		.post("https://portalserver")
 		.body(body)
 		.send()
@@ -152,10 +152,13 @@ fn init(
 			let outer_loop_log_span = Span::current();
 			outer_loop_log_span.follows_from(&main_span);
 			outer_loop_log_span.record("endpoint_slice_name", &endpoint_slice.name_any());
+			let reqwest_client = reqwest::Client::new();
+
 			async move {
 				endpoint_slice_handler(
 					endpoint_slice,
 					client,
+					reqwest_client,
 					nais_apps,
 					&nais_gvk,
 					&outer_loop_log_span,
