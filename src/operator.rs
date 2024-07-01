@@ -8,6 +8,7 @@ use kube::{
 	runtime::{watcher, WatchStreamExt},
 	Api, Client, ResourceExt,
 };
+use serde::Deserialize;
 use tracing::{debug, error, info, warn, Span};
 
 mod endpoint_slice;
@@ -15,6 +16,12 @@ mod java_dto;
 use crate::operator::endpoint_slice::{
 	endpointslice_is_ready, extract_team_and_app_labels, has_service_owner,
 };
+
+#[derive(Deserialize, Debug)]
+struct NameId {
+	name: String,
+	id: String,
+}
 
 /// Each (interesting to us) `EndpointSlice` is expected to
 ///  - have a matching NAIS app
@@ -100,8 +107,13 @@ async fn endpoint_slice_handler(
 	};
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
-	// V- TODO: use the correct endpoint, once the accesspolicy patch is merged
-	let _ = reqwest_client.get("https://portalserver").send().await?;
+	let services: Vec<NameId> = reqwest_client
+		.get("https://portalserver/rest/Services")
+		.send()
+		.await?
+		.json()
+		.await?;
+
 	let body = if endpointslice_is_ready(&endpoint_slice) {
 		// V- TODO: Construct a correct body with DOWN/OK for the cases as appropriate.
 		"NAIS app is ready for traffic"
@@ -109,12 +121,16 @@ async fn endpoint_slice_handler(
 		"NAIS app is not ready for traffic"
 	};
 
+	if !exists {
+		// create the service POST
+	}
 	reqwest_client // TODO: Use the correct endpoint
-		.post("https://portalserver")
-		.body(body)
+		.post("https://portalserver/rest/ServiceStatus")
+		.body(statusbody)
 		.send()
 		.await?
 		.error_for_status()?;
+
 	Ok(())
 }
 
