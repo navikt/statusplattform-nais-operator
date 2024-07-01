@@ -1,6 +1,8 @@
 //! This module contains the logic specific to this k8s operator's execution/main-loop
 
-use color_eyre::eyre;
+use std::collections::HashMap;
+
+use color_eyre::eyre::{self, OptionExt};
 use futures::{Future, TryStreamExt};
 use k8s_openapi::api::discovery::v1::EndpointSlice;
 use kube::{
@@ -8,19 +10,24 @@ use kube::{
 	runtime::{watcher, WatchStreamExt},
 	Api, Client, ResourceExt,
 };
+use reqwest::header;
 use serde::Deserialize;
 use tracing::{debug, error, info, warn, Span};
+use uuid::Uuid;
 
 mod endpoint_slice;
 mod java_dto;
-use crate::operator::endpoint_slice::{
-	endpointslice_is_ready, extract_team_and_app_labels, has_service_owner,
+use crate::{
+	config,
+	operator::endpoint_slice::{
+		endpointslice_is_ready, extract_team_and_app_labels, has_service_owner,
+	},
 };
 
 #[derive(Deserialize, Debug)]
 struct NameId {
 	name: String,
-	id: String,
+	id: Uuid,
 }
 
 /// Each (interesting to us) `EndpointSlice` is expected to
@@ -107,12 +114,15 @@ async fn endpoint_slice_handler(
 	};
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
-	let services: Vec<NameId> = reqwest_client
+	let services: HashMap<String, Uuid> = reqwest_client
 		.get("https://portalserver/rest/Services")
 		.send()
 		.await?
-		.json()
-		.await?;
+		.json::<Vec<NameId>>()
+		.await?
+		.iter()
+		.map(|e| (e.name, e.id))
+		.collect();
 
 	let body = if endpointslice_is_ready(&endpoint_slice) {
 		// V- TODO: Construct a correct body with DOWN/OK for the cases as appropriate.
@@ -121,9 +131,27 @@ async fn endpoint_slice_handler(
 		"NAIS app is not ready for traffic"
 	};
 
-	if !exists {
-		// create the service POST
-	}
+	let service_uuid = match services.get(&app_name) {
+		Some(service) => service,
+		None => {
+			let body = "5";
+			let res = reqwest_client
+				.post("https://portalserver/rest/Service")
+				.body(body)
+				.send()
+				.await?
+				.error_for_status()
+				.map_err(eyre::Error::from)?;
+			let apps: HashMap<String, Uuid> = res
+				.json::<Vec<NameId>>()
+				.await?
+				.iter()
+				.map(|e| (e.name, e.id))
+				.collect();
+			apps.get(&app_name).ok_or_eyre("no app returned")?
+		},
+	};
+
 	reqwest_client // TODO: Use the correct endpoint
 		.post("https://portalserver/rest/ServiceStatus")
 		.body(statusbody)
@@ -140,12 +168,14 @@ async fn endpoint_slice_handler(
 ///
 /// This function will return an error if the watcher returns an error it cannot recover from.
 fn init(
+	config: &config::Config,
 	client: Client,
+
 	nais_apps: ApiResource,
 	nais_gvk: GroupVersionKind,
 	main_span: Span,
 	wc: watcher::Config,
-) -> impl Future<Output = eyre::Result<()>> {
+) -> impl Future<Output = eyre::Result<()>> + '_ {
 	watcher(Api::<EndpointSlice>::all(client.clone()), wc)
 		.applied_objects()
 		.default_backoff()
@@ -160,13 +190,22 @@ fn init(
 			let outer_loop_log_span = Span::current();
 			outer_loop_log_span.follows_from(&main_span);
 			outer_loop_log_span.record("endpoint_slice_name", &endpoint_slice.name_any());
-			let reqwest_client = reqwest::Client::new();
+
+			let Ok(header) = reqwest::header::HeaderValue::from_str(&config.api_key) else {
+				// TODO: This is clearly incorrect, a real error please
+				panic!()
+			};
+
+			let mut headers = reqwest::header::HeaderMap::new();
+			headers.insert("Apikey", header);
+
+			let reqwest_client = reqwest::Client::builder().default_headers(headers).build();
 
 			async move {
 				endpoint_slice_handler(
 					endpoint_slice,
 					client,
-					reqwest_client,
+					reqwest_client?,
 					nais_apps,
 					&nais_gvk,
 					&outer_loop_log_span,
@@ -183,10 +222,12 @@ fn init(
 /// # Errors
 ///
 /// This function will return an error if the watcher returns an error it cannot backoff retry from.
-pub fn run(
-	excluded_namespaces: &str,
+
+pub fn run<'a>(
+	excluded_namespaces: &'a str,
+	config: &'a config::Config,
 	ready_tx: tokio::sync::watch::Sender<bool>,
-) -> impl Future<Output = eyre::Result<()>> {
+) -> impl Future<Output = eyre::Result<()>> + 'a {
 	// We want to filter:
 	// - away resources w/o the labels we require
 	// - away resources belonging to certain namespaces (TODO)
@@ -212,6 +253,6 @@ pub fn run(
 		};
 
 		let (nais_crd, _) = kube::discovery::pinned_kind(&client, &nais_gvk).await?;
-		init(client, nais_crd, nais_gvk, main_span, wc).await
+		init(config, client, nais_crd, nais_gvk, main_span, wc).await
 	}
 }
