@@ -16,7 +16,7 @@ spec:
     - name: COLORBT_SHOW_HIDDEN
     - name: COLORBT_SHOW_HIDDEN
       value: "1"
-  image: { { image } }
+  image: {{ image }}
   port: 8080
   replicas:
     min: 1
