@@ -37,7 +37,7 @@ async fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	logging::init();
 	let config = config::new()?;
-	let (ready_tx, ready_rx) = tokio::sync::watch::channel(false);
+	let (ready_tx, ready_rx) = tokio::sync::watch::channel(true);
 
 	// Ensure port is available
 	let socket = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
