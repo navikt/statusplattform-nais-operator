@@ -160,15 +160,15 @@ async fn endpoint_slice_handler(
 	};
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
-	let (service_id, team_id) = match portal_client
+	let service_id = match portal_client
 		.get("rest/Services")
 		.send()
 		.await?
 		.json::<Vec<ServiceJson>>()
 		.await?
 		.into_iter()
-		.map(|e| (e.name, (e.id, e.team_id)))
-		.collect::<HashMap<ServiceName, (ServiceId, Uuid)>>()
+		.map(|e| (e.name, e.id))
+		.collect::<HashMap<ServiceName, ServiceId>>()
 		.get(&app_name)
 	{
 		Some(service) => service.to_owned(),
@@ -191,8 +191,8 @@ async fn endpoint_slice_handler(
 				.json::<Vec<ServiceJson>>()
 				.await?
 				.into_iter()
-				.map(|e| (e.name, (e.id, e.team_id)))
-				.collect::<HashMap<ServiceName, (ServiceId, Uuid)>>();
+				.map(|e| (e.name, e.id))
+				.collect::<HashMap<ServiceName, ServiceId>>();
 			*apps.get(&app_name).unwrap()
 		},
 	};
