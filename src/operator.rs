@@ -159,7 +159,7 @@ async fn endpoint_slice_handler(
 	};
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
-	let services: HashMap<ServiceName, ServiceId> = portal_client
+	let service_uuid = match portal_client
 		.get("rest/Services")
 		.send()
 		.await?
@@ -167,10 +167,10 @@ async fn endpoint_slice_handler(
 		.await?
 		.into_iter()
 		.map(|e| (e.name, e.id))
-		.collect();
-
-	let service_uuid = match services.get(&app_name) {
-		Some(service) => service.clone(),
+		.collect::<HashMap<ServiceName, ServiceId>>()
+		.get(&app_name)
+	{
+		Some(service) => service.to_owned(),
 		None => {
 			let body = "5";
 			let apps = portal_client
