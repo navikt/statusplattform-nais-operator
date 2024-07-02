@@ -59,9 +59,9 @@ pub fn run<'a>(
 	async move {
 		let client = match Client::try_default().await {
 			Ok(client) => {
-				if let Err(e) = ready_tx.send(true) {
-					return Err(eyre::eyre!("Failed to send ready signal: {:?}", e));
-				}
+				//	if let Err(e) = ready_tx.send(true) {
+				//		return Err(eyre::eyre!("Failed to send ready signal: {:?}", e));
+				//	}
 				client
 			},
 			Err(e) => {
