@@ -14,8 +14,9 @@ spec:
     - name: RUST_LOG
       value: kube=debug
     - name: COLORBT_SHOW_HIDDEN
+    - name: COLORBT_SHOW_HIDDEN
       value: "1"
-  image: {{ image }}
+  image: { { image } }
   port: 8080
   replicas:
     min: 1
@@ -24,3 +25,48 @@ spec:
     outbound:
       rules:
         - application: portalserver
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-apiserver-and-dns
+  namespace: navdig
+spec:
+  egress:
+    - ports:
+        - port: 443
+          protocol: TCP
+      to:
+        - ipBlock:
+            cidr: 172.16.0.13/32
+    - ports:
+        - port: 988
+          protocol: TCP
+      to:
+        - ipBlock:
+            cidr: 169.254.169.252/32
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: nais-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: nais-system
+          podSelector:
+            matchLabels:
+              k8s-app: node-local-dns
+        - ipBlock:
+            cidr: 192.168.64.10/32
+  podSelector:
+    matchLabels:
+      app: statusplattform-nais-operator
+  policyTypes:
+    - Egress
