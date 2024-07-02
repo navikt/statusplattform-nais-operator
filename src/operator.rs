@@ -17,12 +17,12 @@ use uuid::Uuid;
 mod endpoint_slice;
 mod java_dto;
 
-use crate::statusportal;
 use crate::{
 	config,
 	operator::endpoint_slice::{
 		endpointslice_is_ready, extract_team_and_app_labels, has_service_owner,
 	},
+	statusportal,
 };
 
 type ServiceId = Uuid;
@@ -173,12 +173,12 @@ async fn endpoint_slice_handler(
 	{
 		Some(service) => service.to_owned(),
 		None => {
+			info!("No matching service, making a new one!");
 			let apps = portal_client
 				.post("rest/Service")
 				.json(&java_dto::ServiceDto {
 					name: app_name.clone(),
 					team: namespace,
-					team_id: None,
 					service_dependencies: Vec::new(),
 					component_dependencies: Vec::new(),
 					areas_containing_this_service: Vec::new(),
@@ -207,6 +207,7 @@ async fn endpoint_slice_handler(
 		source: java_dto::RecordSourceDto::GcpPoll,
 		description: format!("Status sent from {}", env!("CARGO_PKG_NAME")),
 	};
+	info!("updating service status");
 	portal_client
 		.put("rest/ServiceStatus")
 		.json(&body)
