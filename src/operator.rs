@@ -25,10 +25,12 @@ use crate::{
 	},
 };
 
+type ServiceId = Uuid;
+type ServiceName = String;
 #[derive(Deserialize, Debug, Clone)]
-struct NameId {
-	name: String,
-	id: Uuid,
+struct ServiceJson {
+	name: ServiceName,
+	id: ServiceId,
 }
 
 // TODO: Remove when namespaces are filtered
@@ -157,33 +159,32 @@ async fn endpoint_slice_handler(
 	};
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
-	let services: HashMap<String, Uuid> = portal_client
+	let services: HashMap<ServiceName, ServiceId> = portal_client
 		.get("rest/Services")
 		.send()
 		.await?
-		.json::<Vec<NameId>>()
+		.json::<Vec<ServiceJson>>()
 		.await?
-		.iter()
-		.map(|e| (e.name.clone(), e.id))
+		.into_iter()
+		.map(|e| (e.name, e.id))
 		.collect();
 
 	let service_uuid = match services.get(&app_name) {
 		Some(service) => service.clone(),
 		None => {
 			let body = "5";
-			let res = portal_client
+			let apps = portal_client
 				.post("rest/Service")
 				.json(&body)
 				.send()
 				.await?
 				.error_for_status()
-				.map_err(eyre::Error::from)?;
-			let apps: HashMap<String, Uuid> = res
-				.json::<Vec<NameId>>()
+				.map_err(eyre::Error::from)?
+				.json::<Vec<ServiceJson>>()
 				.await?
-				.iter()
-				.map(|e| (e.name.clone(), e.id))
-				.collect();
+				.into_iter()
+				.map(|e| (e.name, e.id))
+				.collect::<HashMap<ServiceName, ServiceId>>();
 			*apps.get(&app_name).unwrap()
 		},
 	};
