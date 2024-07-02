@@ -176,6 +176,7 @@ async fn endpoint_slice_handler(
 			let body = java_dto::ServiceDto {
 				name: app_name.clone(),
 				team: namespace,
+				typ: "TJENESTE".into(),
 				service_dependencies: Vec::new(),
 				component_dependencies: Vec::new(),
 				areas_containing_this_service: Vec::new(),

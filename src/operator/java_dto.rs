@@ -32,6 +32,8 @@ pub(crate) enum AreaDto {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct ServiceDto {
 	pub(crate) name: String,
+	#[serde(rename(serialize = "type"))]
+	pub(crate) typ: String,
 	//	service_type: Option<ServiceTypeDto>,
 	pub(crate) team: String,
 	//	pub(crate) team_id: Option<uuid::Uuid>,
