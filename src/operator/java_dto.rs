@@ -1,17 +1,15 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
-struct RecordDto {
-	// ^ sic! that's the name elsewhere
-	id: uuid::Uuid,
-	service_id: uuid::Uuid,
-	status: StatusDto,
-	source: RecordSourceDto,
-	description: String,
+pub struct RecordDto {
+	pub service_id: uuid::Uuid,
+	pub status: StatusDto,
+	pub source: RecordSourceDto,
+	pub description: String,
 }
 
 #[derive(Serialize, Deserialize)]
-enum RecordSourceDto {
+pub enum RecordSourceDto {
 	#[serde(rename(serialize = "GCP_POLL"))]
 	GcpPoll,
 	// OnPremPoll, -- these never exist to us since we only do gcp
@@ -20,7 +18,7 @@ enum RecordSourceDto {
 }
 
 #[derive(Serialize, Deserialize)]
-enum StatusDto {
+pub enum StatusDto {
 	// these have weird capitalization because the other end is weird.
 	OK,
 	DOWN,
@@ -34,14 +32,12 @@ struct ServiceDto {
 	//	service_type: Option<ServiceTypeDto>,
 	team: String,
 	team_id: uuid::Uuid,
-	//	service_dependencies: Vec<ServiceDto>,
-	//	component_dependencies: Vec<ServiceDto>,
-	//	areas_containing_this_service: Vec<AreaDto>,
-	//	services_dependent_on_this_component: Vec<ServiceDto>,
+	service_dependencies: Vec<ServiceDto>,
+	component_dependencies: Vec<ServiceDto>,
+	areas_containing_this_service: Vec<AreaDto>,
+	services_dependent_on_this_component: Vec<ServiceDto>,
 	//	oh_display: OHdisplayDto,
 	//	monitorlink: String,
 	//	polling_url: String,
-	polling_on_prem: bool,
 	record: RecordDto,
-	status_not_from_team: bool,
 }

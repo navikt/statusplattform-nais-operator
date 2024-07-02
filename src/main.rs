@@ -10,7 +10,6 @@ mod config;
 mod logging;
 mod operator;
 pub mod statusportal;
-
 /// Exclude namespaces that contain NAIS app services we don't care about.
 ///   Will:
 ///    - expect comma-separated string lists in environment variable names supplied

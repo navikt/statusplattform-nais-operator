@@ -167,20 +167,13 @@ async fn endpoint_slice_handler(
 		.map(|e| (e.name.clone(), e.id))
 		.collect();
 
-	let body = if endpointslice_is_ready(&endpoint_slice) {
-		// V- TODO: Construct a correct body with DOWN/OK for the cases as appropriate.
-		"NAIS app is ready for traffic"
-	} else {
-		"NAIS app is not ready for traffic"
-	};
-
 	let service_uuid = match services.get(&app_name) {
 		Some(service) => service.clone(),
 		None => {
 			let body = "5";
 			let res = portal_client
 				.post("rest/Service")
-				.body(body)
+				.json(&body)
 				.send()
 				.await?
 				.error_for_status()
@@ -195,9 +188,25 @@ async fn endpoint_slice_handler(
 		},
 	};
 
+	let body = if endpointslice_is_ready(&endpoint_slice) {
+		java_dto::RecordDto {
+			service_id: service_uuid,
+			status: java_dto::StatusDto::OK,
+			source: java_dto::RecordSourceDto::GcpPoll,
+			description: "".into(),
+		}
+	} else {
+		java_dto::RecordDto {
+			service_id: service_uuid,
+			status: java_dto::StatusDto::DOWN,
+			source: java_dto::RecordSourceDto::GcpPoll,
+			description: "".into(),
+		}
+	};
+
 	portal_client
 		.put("rest/ServiceStatus")
-		.body("eh")
+		.json(&body)
 		.send()
 		.await?
 		.error_for_status()?;
