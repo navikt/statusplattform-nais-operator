@@ -4,13 +4,13 @@ use std::collections::HashMap;
 
 use color_eyre::eyre::{self, OptionExt};
 use futures::{Future, TryStreamExt};
-use k8s_openapi::api::discovery::v1::EndpointSlice;
+use k8s_openapi::{api::discovery::v1::EndpointSlice, serde_json};
 use kube::{
 	api::{ApiResource, DynamicObject, GroupVersionKind},
 	runtime::{watcher, WatchStreamExt},
 	Api, Client, ResourceExt,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn, Span};
 use uuid::Uuid;
 
@@ -173,17 +173,19 @@ async fn endpoint_slice_handler(
 	{
 		Some(service) => service.to_owned(),
 		None => {
-			info!("No matching service, making a new one!");
+			let body = java_dto::ServiceDto {
+				name: app_name.clone(),
+				team: namespace,
+				service_dependencies: Vec::new(),
+				component_dependencies: Vec::new(),
+				areas_containing_this_service: Vec::new(),
+				services_dependent_on_this_component: Vec::new(),
+			};
+			let json = serde_json::to_string(&body)?;
+			info!("No matching service, making a new one! {}", json);
 			let apps = portal_client
 				.post("rest/Service")
-				.json(&java_dto::ServiceDto {
-					name: app_name.clone(),
-					team: namespace,
-					service_dependencies: Vec::new(),
-					component_dependencies: Vec::new(),
-					areas_containing_this_service: Vec::new(),
-					services_dependent_on_this_component: Vec::new(),
-				})
+				.json(&body)
 				.send()
 				.await?
 				.error_for_status()
