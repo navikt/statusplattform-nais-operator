@@ -175,7 +175,15 @@ async fn endpoint_slice_handler(
 			let body = "5";
 			let apps = portal_client
 				.post("rest/Service")
-				.json(&body)
+				.json(&java_dto::ServiceDto {
+					name: todo!(),
+					team: todo!(),
+					team_id: todo!(),
+					service_dependencies: Vec::new(),
+					component_dependencies: Vec::new(),
+					areas_containing_this_service: Vec::new(),
+					services_dependent_on_this_component: Vec::new(),
+				})
 				.send()
 				.await?
 				.error_for_status()

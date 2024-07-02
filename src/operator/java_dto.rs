@@ -24,20 +24,23 @@ pub enum StatusDto {
 	DOWN,
 }
 
-enum AreaDto {}
+#[derive(Serialize, Deserialize)]
+pub(crate) enum AreaDto {
+	// We don't care to implement this at time of writing
+}
 
-struct ServiceDto {
-	name: String,
-	id: uuid::Uuid,
+#[derive(Serialize, Deserialize)]
+pub(crate) struct ServiceDto {
+	pub(crate) name: String,
 	//	service_type: Option<ServiceTypeDto>,
-	team: String,
-	team_id: uuid::Uuid,
-	service_dependencies: Vec<ServiceDto>,
-	component_dependencies: Vec<ServiceDto>,
-	areas_containing_this_service: Vec<AreaDto>,
-	services_dependent_on_this_component: Vec<ServiceDto>,
+	pub(crate) team: String,
+	pub(crate) team_id: uuid::Uuid,
+	pub(crate) service_dependencies: Vec<ServiceDto>,
+	pub(crate) component_dependencies: Vec<ServiceDto>,
+	pub(crate) areas_containing_this_service: Vec<AreaDto>,
+	pub(crate) services_dependent_on_this_component: Vec<ServiceDto>,
 	//	oh_display: OHdisplayDto,
 	//	monitorlink: String,
 	//	polling_url: String,
-	record: RecordDto,
+	// record: RecordDto,
 }
