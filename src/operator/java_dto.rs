@@ -34,7 +34,7 @@ pub(crate) struct ServiceDto {
 	pub(crate) name: String,
 	//	service_type: Option<ServiceTypeDto>,
 	pub(crate) team: String,
-	pub(crate) team_id: uuid::Uuid,
+	pub(crate) team_id: Option<uuid::Uuid>,
 	pub(crate) service_dependencies: Vec<ServiceDto>,
 	pub(crate) component_dependencies: Vec<ServiceDto>,
 	pub(crate) areas_containing_this_service: Vec<AreaDto>,

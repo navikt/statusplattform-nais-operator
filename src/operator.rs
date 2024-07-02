@@ -31,6 +31,7 @@ type ServiceName = String;
 struct ServiceJson {
 	name: ServiceName,
 	id: ServiceId,
+	team_id: Uuid,
 }
 
 // TODO: Remove when namespaces are filtered
@@ -159,26 +160,25 @@ async fn endpoint_slice_handler(
 	};
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
-	let service_uuid = match portal_client
+	let (service_id, team_id) = match portal_client
 		.get("rest/Services")
 		.send()
 		.await?
 		.json::<Vec<ServiceJson>>()
 		.await?
 		.into_iter()
-		.map(|e| (e.name, e.id))
-		.collect::<HashMap<ServiceName, ServiceId>>()
+		.map(|e| (e.name, (e.id, e.team_id)))
+		.collect::<HashMap<ServiceName, (ServiceId, Uuid)>>()
 		.get(&app_name)
 	{
 		Some(service) => service.to_owned(),
 		None => {
-			let body = "5";
 			let apps = portal_client
 				.post("rest/Service")
 				.json(&java_dto::ServiceDto {
-					name: todo!(),
-					team: todo!(),
-					team_id: todo!(),
+					name: app_name.clone(),
+					team: namespace,
+					team_id: None,
 					service_dependencies: Vec::new(),
 					component_dependencies: Vec::new(),
 					areas_containing_this_service: Vec::new(),
@@ -191,14 +191,14 @@ async fn endpoint_slice_handler(
 				.json::<Vec<ServiceJson>>()
 				.await?
 				.into_iter()
-				.map(|e| (e.name, e.id))
-				.collect::<HashMap<ServiceName, ServiceId>>();
+				.map(|e| (e.name, (e.id, e.team_id)))
+				.collect::<HashMap<ServiceName, (ServiceId, Uuid)>>();
 			*apps.get(&app_name).unwrap()
 		},
 	};
 
 	let body = java_dto::RecordDto {
-		service_id: service_uuid,
+		service_id,
 		status: if endpointslice_is_ready(&endpoint_slice) {
 			java_dto::StatusDto::OK
 		} else {
