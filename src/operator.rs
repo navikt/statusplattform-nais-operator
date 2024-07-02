@@ -189,22 +189,16 @@ async fn endpoint_slice_handler(
 		},
 	};
 
-	let body = if endpointslice_is_ready(&endpoint_slice) {
-		java_dto::RecordDto {
-			service_id: service_uuid,
-			status: java_dto::StatusDto::OK,
-			source: java_dto::RecordSourceDto::GcpPoll,
-			description: "".into(),
-		}
-	} else {
-		java_dto::RecordDto {
-			service_id: service_uuid,
-			status: java_dto::StatusDto::DOWN,
-			source: java_dto::RecordSourceDto::GcpPoll,
-			description: "".into(),
-		}
+	let body = java_dto::RecordDto {
+		service_id: service_uuid,
+		status: if endpointslice_is_ready(&endpoint_slice) {
+			java_dto::StatusDto::OK
+		} else {
+			java_dto::StatusDto::DOWN
+		},
+		source: java_dto::RecordSourceDto::GcpPoll,
+		description: format!("Status sent from {}", env!("CARGO_PKG_NAME")),
 	};
-
 	portal_client
 		.put("rest/ServiceStatus")
 		.json(&body)
