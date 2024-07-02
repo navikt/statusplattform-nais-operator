@@ -9,6 +9,7 @@ use tracing::warn;
 mod config;
 mod logging;
 mod operator;
+pub mod statusportal;
 
 /// Exclude namespaces that contain NAIS app services we don't care about.
 ///   Will:
@@ -36,11 +37,7 @@ fn collate_excluded_namespaces(env_vars: &config::Config) -> String {
 async fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	logging::init();
-	let config = config::Config {
-		api_key: env::var("swagger-api-key")?,
-		excluded_namespaces: env::var("PLATFORM_NAMESPACES")?,
-	};
-
+	let config = config::new()?;
 	let (ready_tx, ready_rx) = tokio::sync::watch::channel(false);
 
 	// Ensure port is available

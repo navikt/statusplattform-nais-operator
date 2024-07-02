@@ -10,13 +10,14 @@ use kube::{
 	runtime::{watcher, WatchStreamExt},
 	Api, Client, ResourceExt,
 };
-use reqwest::header;
 use serde::Deserialize;
 use tracing::{debug, error, info, warn, Span};
 use uuid::Uuid;
 
 mod endpoint_slice;
 mod java_dto;
+
+use crate::statusportal;
 use crate::{
 	config,
 	operator::endpoint_slice::{
@@ -24,10 +25,52 @@ use crate::{
 	},
 };
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 struct NameId {
 	name: String,
 	id: Uuid,
+}
+
+// TODO: Remove when namespaces are filtered
+#[allow(unused_variables)]
+/// Sets up, starts, and runs an (eternally running) `kube::runtime::watcher`
+///
+/// # Errors
+///
+/// This function will return an error if the watcher returns an error it cannot backoff retry from.
+
+pub fn run<'a>(
+	excluded_namespaces: &'a str,
+	config: &'a config::Config,
+	ready_tx: tokio::sync::watch::Sender<bool>,
+) -> impl Future<Output = eyre::Result<()>> + 'a {
+	// We want to filter:
+	// - away resources w/o the labels we require
+	// - away resources belonging to certain namespaces (TODO)
+	let wc = watcher::Config::default().labels("app,team");
+	// .fields(&_excluded_namespaces);
+	// .streaming_lists(); // TODO: Add back in when cluster supports WatchList feature
+
+	let nais_gvk = GroupVersionKind::gvk("nais.io", "v1alpha1", "Application");
+	let main_span = Span::current();
+
+	async move {
+		let client = match Client::try_default().await {
+			Ok(client) => {
+				if let Err(e) = ready_tx.send(true) {
+					return Err(eyre::eyre!("Failed to send ready signal: {:?}", e));
+				}
+				client
+			},
+			Err(e) => {
+				error!("Failed to create client: {:?}", e);
+				return Err(eyre::eyre!("Failed to create client: {:?}", e));
+			},
+		};
+
+		let (nais_crd, _) = kube::discovery::pinned_kind(&client, &nais_gvk).await?;
+		init(config, client, nais_crd, nais_gvk, main_span, wc).await
+	}
 }
 
 /// Each (interesting to us) `EndpointSlice` is expected to
@@ -67,7 +110,7 @@ fn get_nais_app(
 async fn endpoint_slice_handler(
 	endpoint_slice: EndpointSlice,
 	client: Client,
-	reqwest_client: reqwest::Client,
+	portal_client: statusportal::PortalClient,
 	nais_crds: ApiResource,
 	nais_gvk: &GroupVersionKind,
 	parent_span: &Span,
@@ -114,14 +157,14 @@ async fn endpoint_slice_handler(
 	};
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
-	let services: HashMap<String, Uuid> = reqwest_client
-		.get("https://portalserver/rest/Services")
+	let services: HashMap<String, Uuid> = portal_client
+		.get("rest/Services")
 		.send()
 		.await?
 		.json::<Vec<NameId>>()
 		.await?
 		.iter()
-		.map(|e| (e.name, e.id))
+		.map(|e| (e.name.clone(), e.id))
 		.collect();
 
 	let body = if endpointslice_is_ready(&endpoint_slice) {
@@ -132,11 +175,11 @@ async fn endpoint_slice_handler(
 	};
 
 	let service_uuid = match services.get(&app_name) {
-		Some(service) => service,
+		Some(service) => service.clone(),
 		None => {
 			let body = "5";
-			let res = reqwest_client
-				.post("https://portalserver/rest/Service")
+			let res = portal_client
+				.post("rest/Service")
 				.body(body)
 				.send()
 				.await?
@@ -146,15 +189,15 @@ async fn endpoint_slice_handler(
 				.json::<Vec<NameId>>()
 				.await?
 				.iter()
-				.map(|e| (e.name, e.id))
+				.map(|e| (e.name.clone(), e.id))
 				.collect();
-			apps.get(&app_name).ok_or_eyre("no app returned")?
+			*apps.get(&app_name).unwrap()
 		},
 	};
 
-	reqwest_client // TODO: Use the correct endpoint
-		.post("https://portalserver/rest/ServiceStatus")
-		.body(statusbody)
+	portal_client
+		.put("rest/ServiceStatus")
+		.body("eh")
 		.send()
 		.await?
 		.error_for_status()?;
@@ -191,21 +234,13 @@ fn init(
 			outer_loop_log_span.follows_from(&main_span);
 			outer_loop_log_span.record("endpoint_slice_name", &endpoint_slice.name_any());
 
-			let Ok(header) = reqwest::header::HeaderValue::from_str(&config.api_key) else {
-				// TODO: This is clearly incorrect, a real error please
-				panic!()
-			};
-
-			let mut headers = reqwest::header::HeaderMap::new();
-			headers.insert("Apikey", header);
-
-			let reqwest_client = reqwest::Client::builder().default_headers(headers).build();
+			let portal_client = statusportal::new(&config);
 
 			async move {
 				endpoint_slice_handler(
 					endpoint_slice,
 					client,
-					reqwest_client?,
+					portal_client?,
 					nais_apps,
 					&nais_gvk,
 					&outer_loop_log_span,
@@ -213,46 +248,4 @@ fn init(
 				.await
 			}
 		})
-}
-
-// TODO: Remove when namespaces are filtered
-#[allow(unused_variables)]
-/// Sets up, starts, and runs an (eternally running) `kube::runtime::watcher`
-///
-/// # Errors
-///
-/// This function will return an error if the watcher returns an error it cannot backoff retry from.
-
-pub fn run<'a>(
-	excluded_namespaces: &'a str,
-	config: &'a config::Config,
-	ready_tx: tokio::sync::watch::Sender<bool>,
-) -> impl Future<Output = eyre::Result<()>> + 'a {
-	// We want to filter:
-	// - away resources w/o the labels we require
-	// - away resources belonging to certain namespaces (TODO)
-	let wc = watcher::Config::default().labels("app,team");
-	// .fields(&_excluded_namespaces);
-	// .streaming_lists(); // TODO: Add back in when cluster supports WatchList feature
-
-	let nais_gvk = GroupVersionKind::gvk("nais.io", "v1alpha1", "Application");
-	let main_span = Span::current();
-
-	async move {
-		let client = match Client::try_default().await {
-			Ok(client) => {
-				if let Err(e) = ready_tx.send(true) {
-					return Err(eyre::eyre!("Failed to send ready signal: {:?}", e));
-				}
-				client
-			},
-			Err(e) => {
-				error!("Failed to create client: {:?}", e);
-				return Err(eyre::eyre!("Failed to create client: {:?}", e));
-			},
-		};
-
-		let (nais_crd, _) = kube::discovery::pinned_kind(&client, &nais_gvk).await?;
-		init(config, client, nais_crd, nais_gvk, main_span, wc).await
-	}
 }
