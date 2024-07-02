@@ -31,7 +31,7 @@ type ServiceName = String;
 struct ServiceJson {
 	name: ServiceName,
 	id: ServiceId,
-	team_id: Uuid,
+	team_id: Option<Uuid>,
 }
 
 // TODO: Remove when namespaces are filtered
