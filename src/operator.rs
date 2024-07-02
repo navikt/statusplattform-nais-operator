@@ -204,9 +204,9 @@ async fn endpoint_slice_handler(
 		.json(&body)
 		.send()
 		.await?
-		.error_for_status()?;
-
-	Ok(())
+		.error_for_status()
+		.map_err(eyre::Error::from)
+		.map(|_| ()) // We don't care about successful return value(s)
 }
 
 /// Starts the (ideally eternally running) `kube::runtime::watcher` with the supplied variables required.
