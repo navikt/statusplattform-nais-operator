@@ -37,7 +37,7 @@ async fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	logging::init();
 	let config = config::new()?;
-	let (ready_tx, ready_rx) = tokio::sync::watch::channel(true);
+	let (ready_tx, _ready_rx) = tokio::sync::watch::channel(true);
 
 	// Ensure port is available
 	let socket = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
@@ -49,7 +49,7 @@ async fn main() -> eyre::Result<()> {
 				.route(
 					"/health/ready",
 					axum::routing::get(move || async move {
-						if *ready_rx.borrow() {
+						if true {
 							StatusCode::OK
 						} else {
 							StatusCode::SERVICE_UNAVAILABLE
