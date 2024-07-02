@@ -110,7 +110,7 @@ fn get_nais_app(
 async fn endpoint_slice_handler(
 	endpoint_slice: EndpointSlice,
 	client: Client,
-	portal_client: statusportal::PortalClient,
+	portal_client: statusportal::Client,
 	nais_crds: ApiResource,
 	nais_gvk: &GroupVersionKind,
 	parent_span: &Span,
@@ -213,7 +213,6 @@ async fn endpoint_slice_handler(
 fn init(
 	config: &config::Config,
 	client: Client,
-
 	nais_apps: ApiResource,
 	nais_gvk: GroupVersionKind,
 	main_span: Span,

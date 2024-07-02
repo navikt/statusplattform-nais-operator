@@ -1,12 +1,13 @@
 use crate::config;
+use color_eyre::eyre;
 use reqwest;
 
-pub struct PortalClient {
+pub struct Client {
 	client: reqwest::Client,
 	base_url: String,
 }
 
-impl PortalClient {
+impl Client {
 	fn new(client: reqwest::Client, base_url: String) -> Self {
 		Self { client, base_url }
 	}
@@ -24,7 +25,7 @@ impl PortalClient {
 	}
 }
 
-pub fn new(config: &config::Config) -> Result<PortalClient, reqwest::Error> {
+pub(crate) fn new(config: &config::Config) -> eyre::Result<Client> {
 	let Ok(header) = reqwest::header::HeaderValue::from_str(&config.api_key) else {
 		// TODO: This is clearly incorrect, a real error please
 		panic!()
@@ -37,5 +38,5 @@ pub fn new(config: &config::Config) -> Result<PortalClient, reqwest::Error> {
 		.default_headers(headers)
 		.build()?;
 	let conf = config.clone();
-	Ok(PortalClient::new(client, conf.base_url))
+	Ok(Client::new(client, conf.base_url))
 }
