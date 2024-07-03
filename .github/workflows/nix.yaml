@@ -26,6 +26,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
+      packages: "write"
       contents: "read"
       id-token: "write"
     steps:
