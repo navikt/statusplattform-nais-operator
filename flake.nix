@@ -61,6 +61,10 @@
 
         };
 
+        imageTag = "v${cargoDetails.package.version}-${dockerTag}";
+        imageName =
+          "europe-north1-docker.pkg.dev/nais-management-233d/navdig/${pname}:${imageTag}";
+        my-spec = import ./spec.nix imageName;
         # Compile (and cache) cargo dependencies _only_
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
@@ -79,6 +83,11 @@
             ++ [ pkgs.cargo-cyclonedx ];
         });
 
+        dockerTag = if lib.hasAttr "rev" self then
+          "${builtins.toString self.revCount}-${self.shortRev}"
+        else
+          "gitDirty";
+
         # Compile workspace code (including 3rd party dependencies)
         cargo-package =
           craneLib.buildPackage (commonArgs // { inherit cargoArtifacts; });
@@ -94,17 +103,17 @@
           cargo-clippy = craneLib.cargoClippy (commonArgs // {
             inherit cargoArtifacts;
             cargoClippyExtraArgs = lib.concatStringsSep " " [
-              #  "--all-targets"
-              #  "--"
-              #  "--deny warnings"
-              #  "-W"
-              #  "clippy::pedantic"
+              # "--all-targets"
+              # "--"
+              # "--deny warnings"
               # "-W"
-              #  "clippy::nursery"
-              #  "-W"
-              #  "clippy::unwrap_used"
-              #  "-W"
-              #  "clippy::expect_used"
+              # "clippy::pedantic"
+              # "-W"
+              # "clippy::nursery"
+              # "-W"
+              # "clippy::unwrap_used"
+              # "-W"
+              # "clippy::expect_used"
             ];
           });
           cargo-doc =
@@ -153,9 +162,17 @@
           rust = cargo-package;
           sbom = cargo-sbom;
           image = docker;
+          spec = let
+            toJson = attrSet: builtins.toJSON attrSet;
+            yamlContent = builtins.concatStringsSep ''
+
+              ---
+            '' (map toJson my-spec);
+          in pkgs.writeText "spec.yaml" yamlContent;
+
           docker = pkgs.dockerTools.buildImage {
             name = pname;
-            tag = "v${cargoDetails.package.version}";
+            tag = imageTag;
             config = { Entrypoint = [ "${cargo-package}/bin/${pname}" ]; };
           };
         };

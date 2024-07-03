@@ -20,19 +20,25 @@ jobs:
 
     outputs:
       image: ${{ steps.nix-build.outputs.image }}
+
   deploy:
     name: deploy-dev
     needs: build
     runs-on: ubuntu-latest
     permissions:
+      packages: "write"
       contents: "read"
       id-token: "write"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: Download spec
+        uses: actions/download-artifact@v4
+        with:
+          name: spec.yaml
+
       - name: Deploy
         uses: nais/deploy/actions/deploy@v2
         env:
           IMAGE: ${{ steps.build.outputs.image }}
           CLUSTER: dev-gcp
-          RESOURCE: ./nais.yml
-          VAR: image=${{ needs.build.outputs.image }}
+          RESOURCE: spec.yaml
