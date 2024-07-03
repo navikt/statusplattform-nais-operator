@@ -100,8 +100,6 @@ fn get_nais_app(
 	}
 }
 
-/// The "inner"/"hot loop" of this k8s operator.
-///
 /// It looks at each `EndpointSlice`, and
 /// 1. Finds metadata re. the `EndpointSlice`
 /// 1. Uses the metadata to try and eliminate `EndpointSlices` we don't care about
@@ -119,15 +117,15 @@ async fn endpoint_slice_handler(
 	parent_span: &Span,
 ) -> eyre::Result<()> {
 	Span::current().follows_from(parent_span);
-	info!("Starting to look at endpoint");
+	info!("Starting to look at endpoint: {:?}", &endpoint_slice);
 
 	let Some(namespace) = endpoint_slice.namespace() else {
 		// All `EndpointSlice`s should belong to a namespace...
-		error!("Unable to ascertain namespace of EndpointSlice");
+		error!("No namespace for EndpointSlice");
 		return Ok(());
 	};
 	Span::current().record("namespace", &namespace);
-	debug!("Ascertained namespace of EndpointSlice");
+	info!("Found namespace of EndpointSlice");
 
 	let Some((app_name, team_name)) =
 		extract_team_and_app_labels(&endpoint_slice, &Span::current())
@@ -137,7 +135,7 @@ async fn endpoint_slice_handler(
 	};
 	Span::current().record("app_name", &app_name);
 	Span::current().record("team_name", &team_name);
-	debug!("Found required labels on EndpointSlice");
+	info!("Found required labels on EndpointSlice");
 
 	let has_expected_owner = has_service_owner(&endpoint_slice, &app_name, &Span::current());
 	if !has_expected_owner {
@@ -195,7 +193,7 @@ async fn endpoint_slice_handler(
 			.await?
 			.id
 	};
-
+	info!("found service id {}", &service_id);
 	let body = api_types::RecordDto {
 		service_id,
 		status: if endpointslice_is_ready(&endpoint_slice) {
@@ -206,7 +204,7 @@ async fn endpoint_slice_handler(
 		source: api_types::RecordSourceDto::GcpPoll,
 		description: format!("Status sent from {}", env!("CARGO_PKG_NAME")),
 	};
-	info!("updating service status");
+	info!("updating service status {:#?}", &body);
 	portal_client
 		.post("rest/ServiceStatus")
 		.json(&body)

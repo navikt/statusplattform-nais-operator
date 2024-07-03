@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct RecordDto {
 	pub service_id: uuid::Uuid,
 	pub status: StatusDto,
@@ -8,7 +8,7 @@ pub struct RecordDto {
 	pub description: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum RecordSourceDto {
 	#[serde(rename(serialize = "GCP_POLL"))]
 	GcpPoll,
@@ -17,7 +17,7 @@ pub enum RecordSourceDto {
 	// Obm,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum StatusDto {
 	// these have weird capitalization because the other end is weird.
 	#[serde(rename(serialize = "OK"))]
@@ -26,12 +26,12 @@ pub enum StatusDto {
 	Down,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum AreaDto {
 	// We don't care to implement this at time of writing
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ServiceDto {
 	pub name: String,
 	#[serde(rename(serialize = "type"))]
