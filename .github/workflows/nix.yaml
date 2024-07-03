@@ -28,6 +28,11 @@ jobs:
       contents: "read"
       id-token: "write"
     steps:
+      - name: Download spec
+        uses: actions/download-artifact@v3
+        with:
+          name: spec.yaml
+
       - uses: actions/checkout@v3
       - name: Deploy
         uses: nais/deploy/actions/deploy@v2
