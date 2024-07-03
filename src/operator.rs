@@ -15,14 +15,14 @@ use tracing::{debug, error, info, warn, Span};
 use uuid::Uuid;
 
 mod endpoint_slice;
-mod java_dto;
 
 use crate::{
 	config,
 	operator::endpoint_slice::{
 		endpointslice_is_ready, extract_team_and_app_labels, has_service_owner,
 	},
-	statusportal,
+	statusplattform,
+	statusplattform::api_types,
 };
 
 type ServiceId = Uuid;
@@ -113,7 +113,7 @@ fn get_nais_app(
 async fn endpoint_slice_handler(
 	endpoint_slice: EndpointSlice,
 	client: Client,
-	portal_client: statusportal::Client,
+	portal_client: statusplattform::Client,
 	nais_crds: ApiResource,
 	nais_gvk: &GroupVersionKind,
 	parent_span: &Span,
@@ -173,7 +173,7 @@ async fn endpoint_slice_handler(
 	{
 		Some(service) => service.to_owned(),
 		None => {
-			let body = java_dto::ServiceDto {
+			let body = api_types::ServiceDto {
 				name: app_name.clone(),
 				team: namespace,
 				typ: "TJENESTE".into(),
@@ -197,14 +197,14 @@ async fn endpoint_slice_handler(
 		},
 	};
 
-	let body = java_dto::RecordDto {
+	let body = api_types::RecordDto {
 		service_id,
 		status: if endpointslice_is_ready(&endpoint_slice) {
-			java_dto::StatusDto::OK
+			api_types::StatusDto::OK
 		} else {
-			java_dto::StatusDto::DOWN
+			api_types::StatusDto::DOWN
 		},
-		source: java_dto::RecordSourceDto::GcpPoll,
+		source: api_types::RecordSourceDto::GcpPoll,
 		description: format!("Status sent from {}", env!("CARGO_PKG_NAME")),
 	};
 	info!("updating service status");
@@ -246,7 +246,7 @@ fn init(
 			outer_loop_log_span.follows_from(&main_span);
 			outer_loop_log_span.record("endpoint_slice_name", &endpoint_slice.name_any());
 
-			let portal_client = statusportal::new(&config);
+			let portal_client = statusplattform::new(&config);
 
 			async move {
 				endpoint_slice_handler(

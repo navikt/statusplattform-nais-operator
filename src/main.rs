@@ -1,15 +1,14 @@
-use std::{collections::HashSet, env};
+use std::collections::HashSet;
 
 use axum::{routing, Router};
 use color_eyre::eyre;
 use k8s_openapi::api::discovery::v1::EndpointSlice;
 use reqwest::StatusCode;
-use tracing::warn;
 
 mod config;
 mod logging;
 mod operator;
-pub mod statusportal;
+mod statusplattform;
 /// Exclude namespaces that contain NAIS app services we don't care about.
 ///   Will:
 ///    - expect comma-separated string lists in environment variable names supplied

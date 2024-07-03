@@ -7,6 +7,8 @@ pub struct Client {
 	base_url: String,
 }
 
+pub(crate) mod api_types;
+
 impl Client {
 	fn new(client: reqwest::Client, base_url: String) -> Self {
 		Self { client, base_url }
