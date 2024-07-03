@@ -20,6 +20,7 @@ jobs:
 
     outputs:
       image: ${{ steps.nix-build.outputs.image }}
+
   deploy:
     name: deploy-dev
     needs: build
@@ -39,4 +40,4 @@ jobs:
         env:
           IMAGE: ${{ steps.build.outputs.image }}
           CLUSTER: dev-gcp
-          RESOURCE: ./spec.yaml
+          RESOURCE: spec.yaml
