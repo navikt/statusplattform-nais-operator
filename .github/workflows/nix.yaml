@@ -34,5 +34,5 @@ jobs:
         env:
           IMAGE: ${{ steps.build.outputs.image }}
           CLUSTER: dev-gcp
-          RESOURCE: ./nais.yml
+          RESOURCE: ./spec.yml
           VAR: image=${{ needs.build.outputs.image }}
