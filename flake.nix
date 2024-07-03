@@ -61,6 +61,8 @@
 
         };
 
+        my-spec =
+          import ./spec.nix ("${pname}:v${cargoDetails.package.version}");
         # Compile (and cache) cargo dependencies _only_
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
@@ -94,17 +96,17 @@
           cargo-clippy = craneLib.cargoClippy (commonArgs // {
             inherit cargoArtifacts;
             cargoClippyExtraArgs = lib.concatStringsSep " " [
-              #  "--all-targets"
-              #  "--"
-              #  "--deny warnings"
-              #  "-W"
-              #  "clippy::pedantic"
-              # "-W"
-              #  "clippy::nursery"
-              #  "-W"
-              #  "clippy::unwrap_used"
-              #  "-W"
-              #  "clippy::expect_used"
+              "--all-targets"
+              "--"
+              "--deny warnings"
+              "-W"
+              "clippy::pedantic"
+              "-W"
+              "clippy::nursery"
+              "-W"
+              "clippy::unwrap_used"
+              "-W"
+              "clippy::expect_used"
             ];
           });
           cargo-doc =
@@ -153,6 +155,16 @@
           rust = cargo-package;
           sbom = cargo-sbom;
           image = docker;
+          spec = let
+            toJson = attrSet: builtins.toJSON attrSet;
+            yamlContent = builtins.concatStringsSep ''
+
+              ---
+            '' (map toJson my-spec);
+
+            # Write the content to a file
+          in pkgs.writeText "spec.yaml" yamlContent;
+
           docker = pkgs.dockerTools.buildImage {
             name = pname;
             tag = "v${cargoDetails.package.version}";
