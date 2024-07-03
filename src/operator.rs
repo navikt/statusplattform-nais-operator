@@ -212,7 +212,7 @@ async fn endpoint_slice_handler(
 	};
 	info!("updating service status");
 	portal_client
-		.put("rest/ServiceStatus")
+		.post("rest/ServiceStatus")
 		.json(&body)
 		.send()
 		.await?

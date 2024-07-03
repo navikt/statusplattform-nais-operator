@@ -2,7 +2,7 @@ use std::env;
 
 use color_eyre::eyre;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct Config {
 	pub api_key: String,
 	pub excluded_namespaces: String,
