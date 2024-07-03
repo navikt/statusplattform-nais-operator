@@ -1,6 +1,7 @@
 use std::io::IsTerminal;
 
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Registry};
+use tracing::Level;
+use tracing_subscriber::{filter, layer::SubscriberExt, util::SubscriberInitExt, Registry};
 
 pub fn init() {
 	use tracing_subscriber::fmt as layer_fmt;
@@ -10,10 +11,18 @@ pub fn init() {
 		(None, Some(layer_fmt::layer().json().flatten_event(true)))
 	};
 
-	// TODO: Sanitize log output which is too verbose
-	Registry::default()
-		// .with(otel_layer) // TODO
+	Registry::default() // TODO: .with(otel_layer)
 		.with(plain_log_format)
 		.with(json_log_format)
+		.with(
+			filter::Targets::new()
+				.with_default(Level::INFO)
+				.with_target("axum::rejection", Level::TRACE)
+				.with_target("hyper", Level::ERROR)
+				.with_target("kube_client", Level::ERROR)
+				.with_target("hyper_util", Level::ERROR)
+				.with_target("reqwest", Level::ERROR)
+				.with_target("tower", Level::ERROR),
+		)
 		.init();
 }
