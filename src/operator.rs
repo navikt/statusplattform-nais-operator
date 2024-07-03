@@ -57,16 +57,16 @@ pub fn run<'a>(
 	async move {
 		let client = match Client::try_default().await {
 			Ok(client) => {
-				if let Err(e) = ready_tx.send(true) {
-					dbg!(e.0);
-					eyre::bail!("send ready signal: {:#?}", e);
-				}
+				// if let Err(e) = ready_tx.send(true) {
+				// 	dbg!(e.0);
+				// 	eyre::bail!("send ready signal: {:#?}", e);
+				// }
 				client
 			},
 			Err(e) => {
-				if let Err(e) = ready_tx.send(false) {
-					eyre::bail!("send ready signal: {:#?}", e);
-				}
+				// if let Err(e) = ready_tx.send(false) {
+				// 	eyre::bail!("send ready signal: {:#?}", e);
+				// }
 				eyre::bail!("create client: {:#?}", e);
 			},
 		};
