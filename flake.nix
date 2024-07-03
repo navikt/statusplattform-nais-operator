@@ -61,8 +61,10 @@
 
         };
 
-        my-spec =
-          import ./spec.nix ("${pname}:v${cargoDetails.package.version}");
+        imageTag = "v${cargoDetails.package.version}-${dockerTag}";
+        imageName =
+          "europe-north1-docker.pkg.dev/nais-management-233d/navdig/${pname}:${imageTag}";
+        my-spec = import ./spec.nix imageName;
         # Compile (and cache) cargo dependencies _only_
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
@@ -80,6 +82,11 @@
           nativeBuildInputs = (commonArgs.nativeBuildInputs or [ ])
             ++ [ pkgs.cargo-cyclonedx ];
         });
+
+        dockerTag = if lib.hasAttr "rev" self then
+          "${builtins.toString self.revCount}-${self.shortRev}"
+        else
+          "gitDirty";
 
         # Compile workspace code (including 3rd party dependencies)
         cargo-package =
@@ -161,13 +168,11 @@
 
               ---
             '' (map toJson my-spec);
-
-            # Write the content to a file
           in pkgs.writeText "spec.yaml" yamlContent;
 
           docker = pkgs.dockerTools.buildImage {
             name = pname;
-            tag = "v${cargoDetails.package.version}";
+            tag = imageTag;
             config = { Entrypoint = [ "${cargo-package}/bin/${pname}" ]; };
           };
         };
