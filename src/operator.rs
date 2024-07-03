@@ -55,8 +55,7 @@ pub fn run<'a>(
 	let main_span = Span::current();
 
 	async move {
-		let c = Client::try_default().await;
-		let client = match c {
+		let client = match Client::try_default().await {
 			Ok(client) => {
 				if let Err(e) = ready_tx.send(true) {
 					dbg!(e.0);
