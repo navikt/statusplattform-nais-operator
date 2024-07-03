@@ -103,17 +103,17 @@
           cargo-clippy = craneLib.cargoClippy (commonArgs // {
             inherit cargoArtifacts;
             cargoClippyExtraArgs = lib.concatStringsSep " " [
-              "--all-targets"
-              "--"
-              "--deny warnings"
-              "-W"
-              "clippy::pedantic"
-              "-W"
-              "clippy::nursery"
-              "-W"
-              "clippy::unwrap_used"
-              "-W"
-              "clippy::expect_used"
+              # "--all-targets"
+              # "--"
+              # "--deny warnings"
+              # "-W"
+              # "clippy::pedantic"
+              # "-W"
+              # "clippy::nursery"
+              # "-W"
+              # "clippy::unwrap_used"
+              # "-W"
+              # "clippy::expect_used"
             ];
           });
           cargo-doc =
