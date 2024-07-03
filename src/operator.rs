@@ -184,19 +184,16 @@ async fn endpoint_slice_handler(
 			};
 			let json = serde_json::to_string(&body)?;
 			info!("No matching service, making a new one! {}", json);
-			let apps = portal_client
+			portal_client
 				.post("rest/Service")
 				.json(&body)
 				.send()
 				.await?
 				.error_for_status()
 				.map_err(eyre::Error::from)?
-				.json::<Vec<ServiceJson>>()
+				.json::<ServiceJson>()
 				.await?
-				.into_iter()
-				.map(|e| (e.name, e.id))
-				.collect::<HashMap<ServiceName, ServiceId>>();
-			*apps.get(&app_name).unwrap()
+				.id
 		},
 	};
 
