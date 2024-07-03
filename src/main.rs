@@ -16,7 +16,7 @@ mod statusplattform;
 ///    - returns comma-separated string of format `namespace!=<namespace name>`
 fn collate_excluded_namespaces(env_vars: &config::Config) -> String {
 	if env_vars.excluded_namespaces.is_empty() {
-		return "".to_string();
+		return String::new();
 	}
 
 	let excluded_namespaces: HashSet<String> = env_vars
@@ -35,8 +35,8 @@ fn collate_excluded_namespaces(env_vars: &config::Config) -> String {
 async fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
 	logging::init();
-	let config = config::new()?;
-	let (ready_tx, _ready_rx) = tokio::sync::watch::channel(true);
+	let config = config::new();
+	let (ready_tx, ready_rx) = tokio::sync::watch::channel(true);
 
 	// Ensure port is available
 	let socket = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
@@ -48,7 +48,7 @@ async fn main() -> eyre::Result<()> {
 				.route(
 					"/health/ready",
 					axum::routing::get(move || async move {
-						if true {
+						if *ready_rx.borrow() {
 							StatusCode::OK
 						} else {
 							StatusCode::SERVICE_UNAVAILABLE

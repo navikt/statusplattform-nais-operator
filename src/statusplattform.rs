@@ -1,16 +1,15 @@
 use crate::config;
 use color_eyre::eyre;
-use reqwest;
 
 pub struct Client {
 	client: reqwest::Client,
 	base_url: String,
 }
 
-pub(crate) mod api_types;
+pub mod api_types;
 
 impl Client {
-	fn new(client: reqwest::Client, base_url: String) -> Self {
+	const fn new(client: reqwest::Client, base_url: String) -> Self {
 		Self { client, base_url }
 	}
 
@@ -21,16 +20,11 @@ impl Client {
 	pub fn post(&self, endpoint: &str) -> reqwest::RequestBuilder {
 		self.client.post(format!("{}/{}", self.base_url, endpoint))
 	}
-
-	pub fn put(&self, endpoint: &str) -> reqwest::RequestBuilder {
-		self.client.put(format!("{}/{}", self.base_url, endpoint))
-	}
 }
 
-pub(crate) fn new(config: &config::Config) -> eyre::Result<Client> {
+pub fn new(config: &config::Config) -> eyre::Result<Client> {
 	let Ok(header) = reqwest::header::HeaderValue::from_str(&config.api_key) else {
-		// TODO: This is clearly incorrect, a real error please
-		panic!()
+		eyre::bail!("Failed at constructing the api key header")
 	};
 
 	let mut headers = reqwest::header::HeaderMap::new();

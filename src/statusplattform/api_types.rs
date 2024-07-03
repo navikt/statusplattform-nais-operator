@@ -20,27 +20,29 @@ pub enum RecordSourceDto {
 #[derive(Serialize, Deserialize)]
 pub enum StatusDto {
 	// these have weird capitalization because the other end is weird.
-	OK,
-	DOWN,
+	#[serde(rename(serialize = "OK"))]
+	Ok,
+	#[serde(rename(serialize = "DOWN"))]
+	Down,
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) enum AreaDto {
+pub enum AreaDto {
 	// We don't care to implement this at time of writing
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct ServiceDto {
-	pub(crate) name: String,
+pub struct ServiceDto {
+	pub name: String,
 	#[serde(rename(serialize = "type"))]
-	pub(crate) typ: String,
+	pub typ: String,
 	//	service_type: Option<ServiceTypeDto>,
-	pub(crate) team: String,
-	//	pub(crate) team_id: Option<uuid::Uuid>,
-	pub(crate) service_dependencies: Vec<ServiceDto>,
-	pub(crate) component_dependencies: Vec<ServiceDto>,
-	pub(crate) areas_containing_this_service: Vec<AreaDto>,
-	pub(crate) services_dependent_on_this_component: Vec<ServiceDto>,
+	pub team: String,
+	//	pub team_id: Option<uuid::Uuid>,
+	pub service_dependencies: Vec<ServiceDto>,
+	pub component_dependencies: Vec<ServiceDto>,
+	pub areas_containing_this_service: Vec<AreaDto>,
+	pub services_dependent_on_this_component: Vec<ServiceDto>,
 	//	oh_display: OHdisplayDto,
 	//	monitorlink: String,
 	//	polling_url: String,

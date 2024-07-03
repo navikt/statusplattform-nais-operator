@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use color_eyre::eyre::{self, OptionExt};
+use color_eyre::eyre;
 use futures::{Future, TryStreamExt};
 use k8s_openapi::{api::discovery::v1::EndpointSlice, serde_json};
 use kube::{
@@ -10,7 +10,7 @@ use kube::{
 	runtime::{watcher, WatchStreamExt},
 	Api, Client, ResourceExt,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tracing::{debug, error, info, warn, Span};
 use uuid::Uuid;
 
@@ -21,8 +21,7 @@ use crate::{
 	operator::endpoint_slice::{
 		endpointslice_is_ready, extract_team_and_app_labels, has_service_owner,
 	},
-	statusplattform,
-	statusplattform::api_types,
+	statusplattform::{self, api_types},
 };
 
 type ServiceId = Uuid;
@@ -31,7 +30,6 @@ type ServiceName = String;
 struct ServiceJson {
 	name: ServiceName,
 	id: ServiceId,
-	team_id: Option<Uuid>,
 }
 
 // TODO: Remove when namespaces are filtered
@@ -41,7 +39,6 @@ struct ServiceJson {
 /// # Errors
 ///
 /// This function will return an error if the watcher returns an error it cannot backoff retry from.
-
 pub fn run<'a>(
 	excluded_namespaces: &'a str,
 	config: &'a config::Config,
@@ -58,16 +55,20 @@ pub fn run<'a>(
 	let main_span = Span::current();
 
 	async move {
-		let client = match Client::try_default().await {
+		let c = Client::try_default().await;
+		let client = match c {
 			Ok(client) => {
-				//	if let Err(e) = ready_tx.send(true) {
-				//		return Err(eyre::eyre!("Failed to send ready signal: {:?}", e));
-				//	}
+				if let Err(e) = ready_tx.send(true) {
+					dbg!(e.0);
+					eyre::bail!("send ready signal: {:#?}", e);
+				}
 				client
 			},
 			Err(e) => {
-				error!("Failed to create client: {:?}", e);
-				return Err(eyre::eyre!("Failed to create client: {:?}", e));
+				if let Err(e) = ready_tx.send(false) {
+					eyre::bail!("send ready signal: {:#?}", e);
+				}
+				eyre::bail!("create client: {:#?}", e);
 			},
 		};
 
@@ -160,7 +161,7 @@ async fn endpoint_slice_handler(
 	};
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
-	let service_id = match portal_client
+	let service_id = if let Some(service) = portal_client
 		.get("rest/Services")
 		.send()
 		.await?
@@ -171,38 +172,37 @@ async fn endpoint_slice_handler(
 		.collect::<HashMap<ServiceName, ServiceId>>()
 		.get(&app_name)
 	{
-		Some(service) => service.to_owned(),
-		None => {
-			let body = api_types::ServiceDto {
-				name: app_name.clone(),
-				team: namespace,
-				typ: "TJENESTE".into(),
-				service_dependencies: Vec::new(),
-				component_dependencies: Vec::new(),
-				areas_containing_this_service: Vec::new(),
-				services_dependent_on_this_component: Vec::new(),
-			};
-			let json = serde_json::to_string(&body)?;
-			info!("No matching service, making a new one! {}", json);
-			portal_client
-				.post("rest/Service")
-				.json(&body)
-				.send()
-				.await?
-				.error_for_status()
-				.map_err(eyre::Error::from)?
-				.json::<ServiceJson>()
-				.await?
-				.id
-		},
+		service.to_owned()
+	} else {
+		let body = api_types::ServiceDto {
+			name: app_name.clone(),
+			team: namespace,
+			typ: "TJENESTE".into(),
+			service_dependencies: Vec::new(),
+			component_dependencies: Vec::new(),
+			areas_containing_this_service: Vec::new(),
+			services_dependent_on_this_component: Vec::new(),
+		};
+		let json = serde_json::to_string(&body)?;
+		info!("No matching service, making a new one! {}", json);
+		portal_client
+			.post("rest/Service")
+			.json(&body)
+			.send()
+			.await?
+			.error_for_status()
+			.map_err(eyre::Error::from)?
+			.json::<ServiceJson>()
+			.await?
+			.id
 	};
 
 	let body = api_types::RecordDto {
 		service_id,
 		status: if endpointslice_is_ready(&endpoint_slice) {
-			api_types::StatusDto::OK
+			api_types::StatusDto::Ok
 		} else {
-			api_types::StatusDto::DOWN
+			api_types::StatusDto::Down
 		},
 		source: api_types::RecordSourceDto::GcpPoll,
 		description: format!("Status sent from {}", env!("CARGO_PKG_NAME")),
@@ -246,7 +246,7 @@ fn init(
 			outer_loop_log_span.follows_from(&main_span);
 			outer_loop_log_span.record("endpoint_slice_name", &endpoint_slice.name_any());
 
-			let portal_client = statusplattform::new(&config);
+			let portal_client = statusplattform::new(config);
 
 			async move {
 				endpoint_slice_handler(
