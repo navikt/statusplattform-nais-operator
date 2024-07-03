@@ -29,17 +29,14 @@ jobs:
       contents: "read"
       id-token: "write"
     steps:
-
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Download spec
         uses: actions/download-artifact@v4
         with:
           name: spec.yaml
 
-
-        uses: nais/deploy/actions/deploy@v2
       - name: Deploy
-
+        uses: nais/deploy/actions/deploy@v2
         env:
           IMAGE: ${{ steps.build.outputs.image }}
           CLUSTER: dev-gcp
