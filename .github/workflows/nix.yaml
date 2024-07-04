@@ -22,7 +22,7 @@ jobs:
       image: ${{ steps.nix-build.outputs.image }}
 
   deploy:
-    name: deploy-dev
+    name: deploy
     needs: build
     runs-on: ubuntu-latest
     permissions:
