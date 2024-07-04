@@ -2,7 +2,7 @@ name: build
 on: push
 
 jobs:
-  build: # building is also testing.
+  build:
     name: Build
     runs-on: ubuntu-latest
     permissions:
@@ -36,9 +36,17 @@ jobs:
         with:
           name: spec.yaml
 
-      - name: Deploy
+      - name: Deploy-dev
         uses: nais/deploy/actions/deploy@v2
         env:
           IMAGE: ${{ steps.build.outputs.image }}
           CLUSTER: dev-gcp
+          RESOURCE: spec.yaml
+
+      - name: Deploy-prod
+        if: contains(github.ref, 'refs/tags/v')
+        uses: nais/deploy/actions/deploy@v2
+        env:
+          IMAGE: ${{ steps.build.outputs.image }}
+          CLUSTER: prod-gcp
           RESOURCE: spec.yaml
