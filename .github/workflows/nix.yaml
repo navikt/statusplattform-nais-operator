@@ -1,5 +1,9 @@
 name: build
-on: push
+on:
+  push:
+    paths-ignore:
+      - "**/*.md"
+      - ".env*"
 
 jobs:
   build:
