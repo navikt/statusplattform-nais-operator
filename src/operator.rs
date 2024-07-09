@@ -158,23 +158,39 @@ async fn endpoint_slice_handler(
 	};
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
-	let service_id = if let Some(service) = portal_client
-		.get("rest/Services")
-		.send()
-		.await?
-		.json::<Vec<ServiceJson>>()
-		.await?
+	let service_list_request = match portal_client.get("rest/Services").send().await {
+		Ok(http_response) => http_response,
+		Err(e) => eyre::bail!("Sending HTTP request fetching Services failed: {e}"),
+	};
+
+	let services_response = match service_list_request.error_for_status() {
+		Ok(response) => response,
+		Err(e) => eyre::bail!("HTTP request fetching Services returned status code error: {e}"),
+	};
+
+	let url = services_response.url().clone();
+	let services_body = services_response.text().await?;
+	let services: Vec<ServiceJson> = match serde_json::from_str(&services_body) {
+		Ok(parsed_json) => parsed_json,
+		Err(e) => {
+			warn!("Unable to Json deserialize HTTP request fetching Services: {url}");
+			Span::current().record("http_response_body", &services_body);
+			eyre::bail!("Json parsing of Services failed: {e}");
+		},
+	};
+
+	let service_id: Uuid = if let Some(service) = &services
 		.into_iter()
 		.map(|e| (e.name, e.id))
 		.collect::<HashMap<ServiceName, ServiceId>>()
 		.get(&app_name)
 	{
-		service.to_owned()
+		*service.to_owned()
 	} else {
 		let body = api_types::ServiceDto {
 			name: app_name.clone(),
 			team: namespace,
-			typ: "TJENESTE".into(),
+			typ: "TJENESTE".into(), // TODO: Decide on default upstream, "TJENESTE" or "KOMPONENT" enum
 			service_dependencies: Vec::new(),
 			component_dependencies: Vec::new(),
 			areas_containing_this_service: Vec::new(),
