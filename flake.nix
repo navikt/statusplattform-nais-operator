@@ -62,9 +62,9 @@
         };
 
         imageTag = "v${cargoDetails.package.version}-${dockerTag}";
-        imageName =
-          "europe-north1-docker.pkg.dev/nais-management-233d/navdig/${pname}:${imageTag}";
-        my-spec = import ./spec.nix imageName;
+        imageName = "${pname}:${imageTag}";
+        teamName = "navdig";
+        my-spec = import ./spec.nix {inherit lib teamName pname imageName;};
         # Compile (and cache) cargo dependencies _only_
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
