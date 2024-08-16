@@ -60,10 +60,7 @@ async fn main() -> eyre::Result<()> {
 		(None, Some(layer_fmt::layer().json().flatten_event(true)))
 	};
 
-	// Create an OTLP pipeline exporter for a `trace_demo` service.
-
 	let tracer = init_tracer();
-
 	tracing_subscriber::registry()
 		.with(tracing_subscriber::filter::LevelFilter::from_level(
 			Level::INFO,
