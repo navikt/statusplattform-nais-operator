@@ -1,13 +1,9 @@
 use std::collections::HashSet;
+use std::io::IsTerminal;
 
 use axum::{routing, Router};
 use color_eyre::eyre;
 use k8s_openapi::api::discovery::v1::EndpointSlice;
-use reqwest::StatusCode;
-
-use std::io::IsTerminal;
-use tracing_opentelemetry::OpenTelemetryLayer;
-
 use opentelemetry::{global, trace::TracerProvider, KeyValue};
 use opentelemetry_sdk::{
 	runtime,
@@ -18,12 +14,15 @@ use opentelemetry_semantic_conventions::{
 	resource::{DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, SERVICE_VERSION},
 	SCHEMA_URL,
 };
+use reqwest::StatusCode;
 use tracing::Level;
-use tracing_subscriber::{filter, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::{filter, fmt as layer_fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
 mod operator;
 mod statusplattform;
+
 /// Exclude namespaces that contain NAIS app services we don't care about.
 ///   Will:
 ///    - expect comma-separated string lists in environment variable names supplied
@@ -53,20 +52,18 @@ async fn main() -> eyre::Result<()> {
 	let config = config::new();
 	let (ready_tx, ready_rx) = tokio::sync::watch::channel(true);
 
-	use tracing_subscriber::fmt as layer_fmt;
 	let (plain_log_format, json_log_format) = if std::io::stdout().is_terminal() {
 		(Some(layer_fmt::layer().compact()), None)
 	} else {
 		(None, Some(layer_fmt::layer().json().flatten_event(true)))
 	};
 
-	let tracer = init_tracer();
 	tracing_subscriber::registry()
 		.with(tracing_subscriber::filter::LevelFilter::from_level(
 			Level::INFO,
 		))
 		.with(tracing_subscriber::fmt::layer())
-		.with(OpenTelemetryLayer::new(tracer))
+		.with(OpenTelemetryLayer::new(init_tracer()?))
 		.with(plain_log_format)
 		.with(json_log_format)
 		.with(
@@ -113,13 +110,16 @@ fn resource() -> Resource {
 		[
 			KeyValue::new(SERVICE_NAME, env!("CARGO_PKG_NAME")),
 			KeyValue::new(SERVICE_VERSION, env!("CARGO_PKG_VERSION")),
-			KeyValue::new(DEPLOYMENT_ENVIRONMENT, "develop"),
+			KeyValue::new(
+				DEPLOYMENT_ENVIRONMENT,
+				std::env::var("NAIS_CLIENT_ID").unwrap_or_else(|_| String::from("develop")),
+			),
 		],
 		SCHEMA_URL,
 	)
 }
 
-fn init_tracer() -> Tracer {
+fn init_tracer() -> eyre::Result<Tracer> {
 	let provider = opentelemetry_otlp::new_pipeline()
 		.tracing()
 		.with_trace_config(
@@ -134,9 +134,8 @@ fn init_tracer() -> Tracer {
 		)
 		.with_batch_config(BatchConfig::default())
 		.with_exporter(opentelemetry_otlp::new_exporter().tonic())
-		.install_batch(runtime::Tokio)
-		.unwrap();
+		.install_batch(runtime::Tokio)?;
 
 	global::set_tracer_provider(provider.clone());
-	provider.tracer("tracing-otel-subscriber")
+	Ok(provider.tracer("tracing-otel-subscriber"))
 }
