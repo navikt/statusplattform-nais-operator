@@ -1,6 +1,12 @@
 use std::io::IsTerminal;
 
+use opentelemetry::trace::TracerProvider as _;
+use opentelemetry_sdk::trace::Tracer;
+use opentelemetry_sdk::trace::TracerProvider;
+use opentelemetry_stdout as stdout;
 use tracing::Level;
+use tracing::{error, span};
+use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{filter, layer::SubscriberExt, util::SubscriberInitExt, Registry};
 
 pub fn init() {
@@ -10,6 +16,18 @@ pub fn init() {
 	} else {
 		(None, Some(layer_fmt::layer().json().flatten_event(true)))
 	};
+	// Create a new OpenTelemetry trace pipeline that prints to stdout
+	let provider = TracerProvider::builder()
+		.with_simple_exporter(stdout::SpanExporter::default())
+		.build();
+	let tracer = provider.tracer("readme_example");
+
+	// Create a tracing layer with the configured tracer
+	let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+
+	// Use the tracing subscriber `Registry`, or any other subscriber
+	// that impls `LookupSpan`
+	let subscriber = Registry::default().with(telemetry);
 
 	Registry::default() // TODO: .with(otel_layer)
 		.with(plain_log_format)
