@@ -143,7 +143,7 @@ fn init_tracer() -> eyre::Result<Tracer> {
 				// 		|| "Didn't find expected env var: 'OTEL_EXPORTER_OTLP_ENDPOINT'",
 				// 	)?,
 				// ),
-				.with_endpoint("http://ncat-logger.nais-system"),
+				.with_endpoint("http://ncat-logger.nais-system:80"),
 		)
 		.install_batch(runtime::Tokio)?;
 
