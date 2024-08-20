@@ -117,7 +117,7 @@ async fn endpoint_slice_handler(
 	parent_span: &Span,
 ) -> eyre::Result<()> {
 	Span::current().follows_from(parent_span);
-	info!("Starting to look at endpoint: {:?}", &endpoint_slice);
+	debug!("Starting to look at endpoint: {:?}", &endpoint_slice);
 
 	let Some(namespace) = endpoint_slice.namespace() else {
 		// All `EndpointSlice`s should belong to a namespace...
