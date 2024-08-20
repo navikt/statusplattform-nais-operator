@@ -16,7 +16,7 @@ use opentelemetry_semantic_conventions::{
 	SCHEMA_URL,
 };
 use reqwest::StatusCode;
-use tracing::Level;
+use tracing::{info, Level};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{filter, fmt as layer_fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -49,16 +49,15 @@ fn collate_excluded_namespaces(env_vars: &config::Config) -> String {
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
-
 	let config = config::new();
-	let (ready_tx, ready_rx) = tokio::sync::watch::channel(true);
+	info!("Application config found and parsed");
 
 	let (plain_log_format, json_log_format) = if std::io::stdout().is_terminal() {
 		(Some(layer_fmt::layer().compact()), None)
 	} else {
 		(None, Some(layer_fmt::layer().json().flatten_event(true)))
 	};
-
+	let json_activated = json_log_format.is_some();
 	tracing_subscriber::registry()
 		.with(tracing_subscriber::filter::LevelFilter::from_level(
 			Level::INFO, // TODO: Let loglevel be controlled via CLI arg and/or env var
@@ -77,9 +76,14 @@ async fn main() -> eyre::Result<()> {
 				.with_target("tower", Level::ERROR),
 		)
 		.init();
+	info!(
+		"Logging facilities set-up, printing json?: {}",
+		json_activated
+	);
 
 	// Ensure port is available
 	let socket = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+	let (ready_tx, ready_rx) = tokio::sync::watch::channel(true);
 	// Start webserver in sibling thread, so that if the main thread "dies"/stops, this gets cleaned up
 	tokio::spawn(async {
 		axum::serve(
