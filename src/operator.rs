@@ -11,7 +11,7 @@ use kube::{
 	Api, Client, ResourceExt,
 };
 use serde::Deserialize;
-use tracing::{debug, error, info, instrument, warn, Span};
+use tracing::{debug, error, field::Empty, info, instrument, warn, Span};
 use uuid::Uuid;
 
 mod endpoint_slice;
@@ -107,7 +107,7 @@ fn get_nais_app(
 /// # Errors
 ///
 /// This function will return an error if it encounters a situation we believe should never happen.
-#[instrument(skip(client, portal_client))]
+#[instrument(skip(client, portal_client), fields(namespace = Empty, app_name = Empty, team_name = Empty))]
 async fn endpoint_slice_handler(
 	endpoint_slice: EndpointSlice,
 	client: Client,
@@ -231,7 +231,7 @@ async fn endpoint_slice_handler(
 /// # Errors
 ///
 /// This function will return an error if the watcher returns an error it cannot recover from.
-#[instrument(skip(client))]
+#[instrument(skip(client), fields(endpoint_slice_name = Empty))]
 fn init(
 	config: &config::Config,
 	client: Client,
