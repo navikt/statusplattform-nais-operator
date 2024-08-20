@@ -39,7 +39,7 @@ struct ServiceJson {
 /// # Errors
 ///
 /// This function will return an error if the watcher returns an error it cannot backoff retry from.
-#[instrument(skip(ready_tx))]
+#[instrument(skip(ready_tx), field(config = config.as_value()))]
 pub fn run<'a>(
 	excluded_namespaces: &'a str,
 	config: &'a config::Config,

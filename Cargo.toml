@@ -20,6 +20,6 @@ serde = { version = "1.0.203", features = ["derive"] }
 tokio = { version = "1.37.0", features = ["tracing", "macros", "rt-multi-thread"] }
 tracing = "0.1"
 tracing-opentelemetry = "0.25"
-tracing-subscriber = { version = "0.3.18", features = ["json"] }
+tracing-subscriber = { version = "0.3.18", features = ["json", "valuable"] }
 uuid = { version = "1.9.1", features = ["v4", "serde"] }
 redact = "0.1.10"
