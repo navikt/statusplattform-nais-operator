@@ -1,4 +1,11 @@
-{lib, teamName, pname, imageName, ...}: let
+{
+  lib,
+  teamName,
+  pname,
+  imageName,
+  ...
+}:
+let
   statusplattformNaisOperator = {
     apiVersion = "nais.io/v1alpha1";
     kind = "Application";
@@ -10,14 +17,20 @@
       };
     };
     spec = {
-      envFrom = [{secret = "swagger-api-konfig";}];
+      envFrom = [ { secret = "swagger-api-konfig"; } ];
       env = lib.attrsToList {
         RUST_BACKTRACE = "full";
         RUST_LOG = "kube=debug";
         COLORBT_SHOW_HIDDEN = "1";
       };
-      image =  "europe-north1-docker.pkg.dev/nais-management-233d/${teamName}/${imageName}";
-      observability.tracing.enabled = true;
+      image = "europe-north1-docker.pkg.dev/nais-management-233d/${teamName}/${imageName}";
+
+      observability = {
+        logging.destinations = {
+          id = loki;
+        };
+        tracing.enabled = true;
+      };
       port = 8080;
       replicas = {
         min = 1;
@@ -25,7 +38,7 @@
       };
       accessPolicy = {
         outbound = {
-          rules = [{application = "portalserver";}];
+          rules = [ { application = "portalserver"; } ];
         };
       };
     };
@@ -41,18 +54,22 @@
     spec = {
       egress = [
         {
-          ports = [{
-            port = 443;
-            protocol = "TCP";
-          }];
-          to = [{ipBlock.cidr = "172.16.0.13/32";}];
+          ports = [
+            {
+              port = 443;
+              protocol = "TCP";
+            }
+          ];
+          to = [ { ipBlock.cidr = "172.16.0.13/32"; } ];
         }
         {
-          ports = [{
-            port = 988;
-            protocol = "TCP";
-          }];
-          to = [{ipBlock.cidr = "169.254.169.252/32";}];
+          ports = [
+            {
+              port = 988;
+              protocol = "TCP";
+            }
+          ];
+          to = [ { ipBlock.cidr = "169.254.169.252/32"; } ];
         }
         {
           ports = [
@@ -82,17 +99,18 @@
                 "k8s-app" = "node-local-dns";
               };
             }
-            {ipBlock.cidr = "192.168.64.10/32";}
+            { ipBlock.cidr = "192.168.64.10/32"; }
           ];
         }
       ];
       podSelector.matchLabels = {
         app = pname;
       };
-      policyTypes = ["Egress"];
+      policyTypes = [ "Egress" ];
     };
   };
-in [
+in
+[
   statusplattformNaisOperator
   allowApiserverAndDns
 ]
