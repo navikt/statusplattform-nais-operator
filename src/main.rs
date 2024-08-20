@@ -8,7 +8,7 @@ use opentelemetry::{global, trace::TracerProvider, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
 	runtime,
-	trace::{BatchConfig, RandomIdGenerator, Sampler, Tracer},
+	trace::{RandomIdGenerator, Sampler, Tracer},
 	Resource,
 };
 use opentelemetry_semantic_conventions::{
@@ -135,7 +135,6 @@ fn init_tracer() -> eyre::Result<Tracer> {
 				.with_id_generator(RandomIdGenerator::default())
 				.with_resource(resource()?),
 		)
-		.with_batch_config(BatchConfig::default())
 		.with_exporter(
 			opentelemetry_otlp::new_exporter().tonic()
 				// .with_endpoint(
