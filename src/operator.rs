@@ -107,7 +107,7 @@ fn get_nais_app(
 /// # Errors
 ///
 /// This function will return an error if it encounters a situation we believe should never happen.
-#[instrument(skip(client, nais_crds, nais_gvk, portal_client, endpoint_slice), fields(namespace = Empty, app_name = Empty, team_name = Empty))]
+#[instrument(skip(client, nais_crds, nais_gvk, portal_client, endpoint_slice), fields(namespace = Empty, app_name = Empty, team_name = Empty, http_response_body = Empty))]
 async fn endpoint_slice_handler(
 	endpoint_slice: EndpointSlice,
 	client: Client,
