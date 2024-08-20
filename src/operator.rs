@@ -11,7 +11,7 @@ use kube::{
 	Api, Client, ResourceExt,
 };
 use serde::Deserialize;
-use tracing::{debug, error, info, warn, Span};
+use tracing::{debug, error, info, instrument, warn, Span};
 use uuid::Uuid;
 
 mod endpoint_slice;
@@ -39,6 +39,7 @@ struct ServiceJson {
 /// # Errors
 ///
 /// This function will return an error if the watcher returns an error it cannot backoff retry from.
+#[instrument(skip(ready_tx))]
 pub fn run<'a>(
 	excluded_namespaces: &'a str,
 	config: &'a config::Config,
@@ -52,7 +53,6 @@ pub fn run<'a>(
 	// .streaming_lists(); // TODO: Add back in when cluster supports WatchList feature
 
 	let nais_gvk = GroupVersionKind::gvk("nais.io", "v1alpha1", "Application");
-	let main_span = Span::current();
 
 	async move {
 		let client = match Client::try_default().await {
@@ -72,7 +72,7 @@ pub fn run<'a>(
 		};
 
 		let (nais_crd, _) = kube::discovery::pinned_kind(&client, &nais_gvk).await?;
-		init(config, client, nais_crd, nais_gvk, main_span, wc).await
+		init(config, client, nais_crd, nais_gvk, wc).await
 	}
 }
 
@@ -81,12 +81,11 @@ pub fn run<'a>(
 ///    - of the same name as the `EndpointSlice`'s `app` label
 ///  This function returns true if and only if such a NAIS app is found in the
 ///   same namespace as the `EndpointSlice`
+#[instrument(skip_all)]
 fn get_nais_app(
 	nais_app: Result<Option<DynamicObject>, kube::Error>,
 	nais_gvk: &GroupVersionKind,
-	parent_span: &tracing::Span,
 ) -> Option<DynamicObject> {
-	Span::current().follows_from(parent_span);
 	match nais_app {
 		Err(e) => {
 			error!(
@@ -108,15 +107,14 @@ fn get_nais_app(
 /// # Errors
 ///
 /// This function will return an error if it encounters a situation we believe should never happen.
+#[instrument(skip(client, portal_client))]
 async fn endpoint_slice_handler(
 	endpoint_slice: EndpointSlice,
 	client: Client,
 	portal_client: statusplattform::Client,
 	nais_crds: ApiResource,
 	nais_gvk: &GroupVersionKind,
-	parent_span: &Span,
 ) -> eyre::Result<()> {
-	Span::current().follows_from(parent_span);
 	debug!("Starting to look at endpoint: {:?}", &endpoint_slice);
 
 	let Some(namespace) = endpoint_slice.namespace() else {
@@ -127,9 +125,7 @@ async fn endpoint_slice_handler(
 	Span::current().record("namespace", &namespace);
 	info!("Found namespace of EndpointSlice");
 
-	let Some((app_name, team_name)) =
-		extract_team_and_app_labels(&endpoint_slice, &Span::current())
-	else {
+	let Some((app_name, team_name)) = extract_team_and_app_labels(&endpoint_slice) else {
 		warn!("Unable to fetch required labels on EndpointSlice");
 		return Ok(());
 	};
@@ -137,7 +133,7 @@ async fn endpoint_slice_handler(
 	Span::current().record("team_name", &team_name);
 	info!("Found required labels on EndpointSlice");
 
-	let has_expected_owner = has_service_owner(&endpoint_slice, &app_name, &Span::current());
+	let has_expected_owner = has_service_owner(&endpoint_slice, &app_name);
 	if !has_expected_owner {
 		warn!("EndpointSlice does not have expected Service owner reference");
 		return Ok(());
@@ -149,7 +145,6 @@ async fn endpoint_slice_handler(
 			.get_opt(&app_name)
 			.await,
 		nais_gvk,
-		&Span::current(),
 	)
 	.is_none()
 	{
@@ -236,12 +231,12 @@ async fn endpoint_slice_handler(
 /// # Errors
 ///
 /// This function will return an error if the watcher returns an error it cannot recover from.
+#[instrument(skip(client))]
 fn init(
 	config: &config::Config,
 	client: Client,
 	nais_apps: ApiResource,
 	nais_gvk: GroupVersionKind,
-	main_span: Span,
 	wc: watcher::Config,
 ) -> impl Future<Output = eyre::Result<()>> + '_ {
 	watcher(Api::<EndpointSlice>::all(client.clone()), wc)
@@ -255,22 +250,12 @@ fn init(
 			let nais_gvk = nais_gvk.clone();
 
 			// Leverage tracing module's `Span`s logging functionality
-			let outer_loop_log_span = Span::current();
-			outer_loop_log_span.follows_from(&main_span);
-			outer_loop_log_span.record("endpoint_slice_name", &endpoint_slice.name_any());
-
+			Span::current().record("endpoint_slice_name", &endpoint_slice.name_any());
 			let portal_client = statusplattform::new(config);
 
 			async move {
-				endpoint_slice_handler(
-					endpoint_slice,
-					client,
-					portal_client?,
-					nais_apps,
-					&nais_gvk,
-					&outer_loop_log_span,
-				)
-				.await
+				endpoint_slice_handler(endpoint_slice, client, portal_client?, nais_apps, &nais_gvk)
+					.await
 			}
 		})
 }
