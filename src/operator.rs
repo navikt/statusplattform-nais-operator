@@ -81,7 +81,7 @@ pub fn run<'a>(
 ///    - of the same name as the `EndpointSlice`'s `app` label
 ///  This function returns true if and only if such a NAIS app is found in the
 ///   same namespace as the `EndpointSlice`
-#[instrument]
+#[instrument(skip(nais_app, nais_gvk))]
 fn get_nais_app(
 	nais_app: Result<Option<DynamicObject>, kube::Error>,
 	nais_gvk: &GroupVersionKind,
@@ -107,7 +107,7 @@ fn get_nais_app(
 /// # Errors
 ///
 /// This function will return an error if it encounters a situation we believe should never happen.
-#[instrument(skip(client, portal_client, endpoint_slice), fields(namespace = Empty, app_name = Empty, team_name = Empty))]
+#[instrument(skip(client, nais_crds, nais_gvk, portal_client, endpoint_slice), fields(namespace = Empty, app_name = Empty, team_name = Empty))]
 async fn endpoint_slice_handler(
 	endpoint_slice: EndpointSlice,
 	client: Client,
