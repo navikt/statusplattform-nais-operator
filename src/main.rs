@@ -143,7 +143,7 @@ fn init_tracer() -> eyre::Result<Tracer> {
 		.with_exporter(
 			opentelemetry_otlp::new_exporter()
 				.tonic()
-				.with_endpoint(url),
+				.with_endpoint("http://ncat-logger.nais-system"),
 		)
 		.install_batch(runtime::Tokio)?;
 
