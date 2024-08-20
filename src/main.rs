@@ -61,7 +61,7 @@ async fn main() -> eyre::Result<()> {
 
 	tracing_subscriber::registry()
 		.with(tracing_subscriber::filter::LevelFilter::from_level(
-			Level::INFO,
+			Level::INFO, // TODO: Let loglevel be controlled via CLI arg and/or env var
 		))
 		.with(plain_log_format)
 		.with(json_log_format)
