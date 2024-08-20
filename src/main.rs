@@ -63,10 +63,9 @@ async fn main() -> eyre::Result<()> {
 		.with(tracing_subscriber::filter::LevelFilter::from_level(
 			Level::INFO,
 		))
-		.with(tracing_subscriber::fmt::layer())
-		.with(OpenTelemetryLayer::new(init_tracer()?))
 		.with(plain_log_format)
 		.with(json_log_format)
+		.with(OpenTelemetryLayer::new(init_tracer()?))
 		.with(
 			filter::Targets::new()
 				.with_default(Level::INFO)
