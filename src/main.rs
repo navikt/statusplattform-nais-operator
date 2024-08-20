@@ -131,6 +131,15 @@ fn init_tracer() -> eyre::Result<Tracer> {
 	)))?;
 	let provider = opentelemetry_otlp::new_pipeline()
 		.tracing()
+		.with_trace_config(
+			opentelemetry_sdk::trace::Config::default()
+				.with_sampler(Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(
+					1.0,
+				))))
+				.with_id_generator(RandomIdGenerator::default())
+				.with_resource(resource()?),
+		)
+		.with_batch_config(BatchConfig::default())
 		.with_exporter(
 			opentelemetry_otlp::new_exporter()
 				.tonic()
