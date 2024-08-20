@@ -125,10 +125,6 @@ fn resource() -> eyre::Result<Resource> {
 }
 
 fn init_tracer() -> eyre::Result<Tracer> {
-	// The url comes with a port (e.g http://opentelemetry-collector.nais-system:4317).
-	let url = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").context(Box::new(String::from(
-		"Didn't find expected env var: 'OTEL_EXPORTER_OTLP_ENDPOINT'",
-	)))?;
 	let provider = opentelemetry_otlp::new_pipeline()
 		.tracing()
 		.with_trace_config(
@@ -141,8 +137,13 @@ fn init_tracer() -> eyre::Result<Tracer> {
 		)
 		.with_batch_config(BatchConfig::default())
 		.with_exporter(
-			opentelemetry_otlp::new_exporter()
-				.tonic()
+			opentelemetry_otlp::new_exporter().tonic()
+				// .with_endpoint(
+				// 	std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").wrap_err_with(
+				// 		// The url comes with a port (e.g http://opentelemetry-collector.nais-system:4317).
+				// 		|| "Didn't find expected env var: 'OTEL_EXPORTER_OTLP_ENDPOINT'",
+				// 	)?,
+				// ),
 				.with_endpoint("http://ncat-logger.nais-system"),
 		)
 		.install_batch(runtime::Tokio)?;
