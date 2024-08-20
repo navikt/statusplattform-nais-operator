@@ -107,7 +107,7 @@ fn get_nais_app(
 /// # Errors
 ///
 /// This function will return an error if it encounters a situation we believe should never happen.
-#[instrument(skip(client, nais_crds, nais_gvk, portal_client, endpoint_slice), fields(namespace = Empty, app_name = Empty, team_name = Empty, http_response_body = Empty))]
+#[instrument(skip(client, nais_crds, nais_gvk, portal_client, endpoint_slice), fields(nais_app = Empty, namespace = Empty, app_name = Empty, team_name = Empty, http_response_body = Empty))]
 async fn endpoint_slice_handler(
 	endpoint_slice: EndpointSlice,
 	client: Client,
@@ -140,17 +140,16 @@ async fn endpoint_slice_handler(
 	};
 	debug!("Found expected Service owner-reference to EndpointSlice");
 
-	if get_nais_app(
+	let Some(nais_app) = get_nais_app(
 		Api::<DynamicObject>::namespaced_with(client, &namespace, &nais_crds)
 			.get_opt(&app_name)
 			.await,
 		nais_gvk,
-	)
-	.is_none()
-	{
+	) else {
 		warn!("Unable to find any expected NAIS app");
 		return Ok(());
 	};
+	Span::current().record("nais_app", tracing::field::debug(nais_app));
 	info!("Found NAIS app that seems to match this EndpointSlice");
 
 	let service_list_request = match portal_client.get("rest/Services").send().await {
