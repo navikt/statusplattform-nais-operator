@@ -5,6 +5,7 @@ use axum::{routing, Router};
 use color_eyre::eyre;
 use k8s_openapi::api::discovery::v1::EndpointSlice;
 use opentelemetry::{global, trace::TracerProvider, KeyValue};
+use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
 	runtime,
 	trace::{BatchConfig, RandomIdGenerator, Sampler, Tracer},
@@ -105,10 +106,10 @@ async fn main() -> eyre::Result<()> {
 	// futures::future::pending::<()>().await; // Functionally/spiritually equivalent of above line
 }
 
-fn resource() -> Resource {
-	Resource::from_schema_url(
+fn resource() -> eyre::Result<Resource> {
+	Ok(Resource::from_schema_url(
 		[
-			KeyValue::new(SERVICE_NAME, env!("CARGO_PKG_NAME")),
+			KeyValue::new(SERVICE_NAME, std::env::var("OTEL_SERVICE_NAME")?),
 			KeyValue::new(SERVICE_VERSION, env!("CARGO_PKG_VERSION")),
 			KeyValue::new(
 				DEPLOYMENT_ENVIRONMENT,
@@ -116,7 +117,7 @@ fn resource() -> Resource {
 			),
 		],
 		SCHEMA_URL,
-	)
+	))
 }
 
 fn init_tracer() -> eyre::Result<Tracer> {
@@ -130,10 +131,14 @@ fn init_tracer() -> eyre::Result<Tracer> {
                 ))))
                 // If export trace to AWS X-Ray, you can use XrayIdGenerator
                 .with_id_generator(RandomIdGenerator::default())
-                .with_resource(resource()),
+                .with_resource(resource()?),
 		)
 		.with_batch_config(BatchConfig::default())
-		.with_exporter(opentelemetry_otlp::new_exporter().tonic())
+		.with_exporter(
+			opentelemetry_otlp::new_exporter()
+				.tonic()
+				.with_endpoint(std::env::var("OTEL_EXPORTER_ENDPOINT")?),
+		)
 		.install_batch(runtime::Tokio)?;
 
 	global::set_tracer_provider(provider.clone());
