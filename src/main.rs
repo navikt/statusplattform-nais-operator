@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::io::IsTerminal;
 
 use axum::{routing, Router};
-use color_eyre::eyre;
+use color_eyre::eyre::{self, Context};
 use k8s_openapi::api::discovery::v1::EndpointSlice;
 use opentelemetry::{global, trace::TracerProvider, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
@@ -109,7 +109,12 @@ async fn main() -> eyre::Result<()> {
 fn resource() -> eyre::Result<Resource> {
 	Ok(Resource::from_schema_url(
 		[
-			KeyValue::new(SERVICE_NAME, std::env::var("OTEL_SERVICE_NAME")?),
+			KeyValue::new(
+				SERVICE_NAME,
+				std::env::var("OTEL_SERVICE_NAME").context(Box::new(String::from(
+					"Didn't find expected env var: 'OTEL_SERVICE_NAME'",
+				)))?,
+			),
 			KeyValue::new(SERVICE_VERSION, env!("CARGO_PKG_VERSION")),
 			KeyValue::new(
 				DEPLOYMENT_ENVIRONMENT,
@@ -134,11 +139,11 @@ fn init_tracer() -> eyre::Result<Tracer> {
                 .with_resource(resource()?),
 		)
 		.with_batch_config(BatchConfig::default())
-		.with_exporter(
-			opentelemetry_otlp::new_exporter()
-				.tonic()
-				.with_endpoint(std::env::var("OTEL_EXPORTER_ENDPOINT")?),
-		)
+		.with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint(
+			std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").context(Box::new(String::from(
+				"Didn't find expected env var: 'OTEL_EXPORTER_OTLP_ENDPOINT'",
+			)))?,
+		))
 		.install_batch(runtime::Tokio)?;
 
 	global::set_tracer_provider(provider.clone());
