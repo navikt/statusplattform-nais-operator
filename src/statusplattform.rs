@@ -23,7 +23,7 @@ impl Client {
 }
 
 pub fn new(config: &config::Config) -> eyre::Result<Client> {
-	let Ok(header) = reqwest::header::HeaderValue::from_str(&config.api_key) else {
+	let Ok(header) = reqwest::header::HeaderValue::from_str(&config.api_key.expose_secret()) else {
 		eyre::bail!("Failed at constructing the api key header")
 	};
 

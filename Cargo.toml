@@ -22,3 +22,4 @@ tracing = "0.1"
 tracing-opentelemetry = "0.25"
 tracing-subscriber = { version = "0.3.18", features = ["json"] }
 uuid = { version = "1.9.1", features = ["v4", "serde"] }
+redact = "0.1.10"

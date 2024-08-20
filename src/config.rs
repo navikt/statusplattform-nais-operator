@@ -1,8 +1,10 @@
 use std::env;
 
+use redact::Secret;
+
 #[derive(Clone, Debug)]
 pub struct Config {
-	pub api_key: String,
+	pub api_key: Secret<String>,
 	pub excluded_namespaces: String,
 	pub base_url: String,
 }
@@ -14,7 +16,7 @@ pub fn new() -> Config {
 	let excluded_namespaces = env::var("PLATFORM_NAMESPACES").unwrap_or_else(|_| String::new());
 	let base_url = env::var("BASE_URL").unwrap_or_else(|_| String::from("http://portalserver"));
 	Config {
-		api_key,
+		api_key: Secret::new(api_key),
 		excluded_namespaces,
 		base_url,
 	}
