@@ -17,6 +17,10 @@
         COLORBT_SHOW_HIDDEN = "1";
       };
       image =  "europe-north1-docker.pkg.dev/nais-management-233d/${teamName}/${imageName}";
+      observability.autoInstrumentation = {
+        enabled = true;
+        runtime = "sdk";
+      };
       port = 8080;
       replicas = {
         min = 1;
