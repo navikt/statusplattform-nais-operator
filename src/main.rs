@@ -131,23 +131,12 @@ fn init_tracer() -> eyre::Result<Tracer> {
 	let endpoint = format!("{}:{}", url, "4317");
 	let provider = opentelemetry_otlp::new_pipeline()
 		.tracing()
-		.with_trace_config(
-			opentelemetry_sdk::trace::Config::default()
-                // Customize sampling strategy
-                .with_sampler(Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(
-                    1.0,
-                ))))
-                // If export trace to AWS X-Ray, you can use XrayIdGenerator
-                .with_id_generator(RandomIdGenerator::default())
-                .with_resource(resource()?),
-		)
-		.with_batch_config(BatchConfig::default())
 		.with_exporter(
 			opentelemetry_otlp::new_exporter()
 				.tonic()
 				.with_endpoint(endpoint),
 		)
-		.install_batch(runtime::Tokio)?;
+		.install_simple()?;
 
 	global::set_tracer_provider(provider.clone());
 	Ok(provider.tracer("tracing-otel-subscriber"))
