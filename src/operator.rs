@@ -81,7 +81,7 @@ pub fn run<'a>(
 ///    - of the same name as the `EndpointSlice`'s `app` label
 ///  This function returns true if and only if such a NAIS app is found in the
 ///   same namespace as the `EndpointSlice`
-#[instrument(skip_all)]
+#[instrument]
 fn get_nais_app(
 	nais_app: Result<Option<DynamicObject>, kube::Error>,
 	nais_gvk: &GroupVersionKind,
