@@ -8,6 +8,7 @@ use tracing::{error, instrument, warn};
 /// Returns true if and only if at least one of the `EndpointSlice`'s
 ///  `endpoints[].conditions.ready` evaluate to `true`
 ///  Always return false elsewise.
+#[instrument]
 pub fn endpointslice_is_ready(endpoint_slice: &EndpointSlice) -> bool {
 	endpoint_slice
 		.endpoints
@@ -20,7 +21,7 @@ pub fn endpointslice_is_ready(endpoint_slice: &EndpointSlice) -> bool {
 /// Returns true if and only if the `EndpointSlice`'s `.metadata()`
 ///  refers to a `k8s_openapi::api::core::v1::Service` of the same name as the `app` label.
 ///  Always returns false elsewise.
-#[instrument]
+#[instrument(skip(endpoint_slice))]
 pub fn has_service_owner(endpoint_slice: &EndpointSlice, app_name: &str) -> bool {
 	let Some(ref owners) = endpoint_slice.metadata().owner_references else {
 		// We only care about `EndpointSlice`s that've owner references to a `Service`
@@ -39,7 +40,7 @@ pub fn has_service_owner(endpoint_slice: &EndpointSlice, app_name: &str) -> bool
 }
 
 /// Helper function to get the `team` and `app` labels from a K8s resource
-#[instrument]
+#[instrument(skip(endpoint_slice))]
 pub fn extract_team_and_app_labels(endpoint_slice: &EndpointSlice) -> Option<(String, String)> {
 	// We expect the:
 	//   - team's given app name
