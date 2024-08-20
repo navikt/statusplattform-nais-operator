@@ -125,6 +125,10 @@ fn resource() -> eyre::Result<Resource> {
 }
 
 fn init_tracer() -> eyre::Result<Tracer> {
+	let url = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").context(Box::new(String::from(
+		"Didn't find expected env var: 'OTEL_EXPORTER_OTLP_ENDPOINT'",
+	)))?;
+	let endpoint = format!("{}:{}", url, "4317");
 	let provider = opentelemetry_otlp::new_pipeline()
 		.tracing()
 		.with_trace_config(
@@ -138,11 +142,11 @@ fn init_tracer() -> eyre::Result<Tracer> {
                 .with_resource(resource()?),
 		)
 		.with_batch_config(BatchConfig::default())
-		.with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint(
-			std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").context(Box::new(String::from(
-				"Didn't find expected env var: 'OTEL_EXPORTER_OTLP_ENDPOINT'",
-			)))?,
-		))
+		.with_exporter(
+			opentelemetry_otlp::new_exporter()
+				.tonic()
+				.with_endpoint(endpoint),
+		)
 		.install_batch(runtime::Tokio)?;
 
 	global::set_tracer_provider(provider.clone());
