@@ -125,18 +125,18 @@ fn resource() -> eyre::Result<Resource> {
 }
 
 fn init_tracer() -> eyre::Result<Tracer> {
+	// The url comes with a port (e.g http://opentelemetry-collector.nais-system:4317).
 	let url = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").context(Box::new(String::from(
 		"Didn't find expected env var: 'OTEL_EXPORTER_OTLP_ENDPOINT'",
 	)))?;
-	let endpoint = format!("{}:{}", url, "4317");
 	let provider = opentelemetry_otlp::new_pipeline()
 		.tracing()
 		.with_exporter(
 			opentelemetry_otlp::new_exporter()
 				.tonic()
-				.with_endpoint(endpoint),
+				.with_endpoint(url),
 		)
-		.install_simple()?;
+		.install_batch(runtime::Tokio)?;
 
 	global::set_tracer_provider(provider.clone());
 	Ok(provider.tracer("tracing-otel-subscriber"))
