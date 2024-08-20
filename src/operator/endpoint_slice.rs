@@ -3,7 +3,7 @@ use crate::EndpointSlice;
 
 use k8s_openapi::Metadata;
 use kube::ResourceExt;
-use tracing::{error, warn, Span};
+use tracing::{error, info, warn, Span};
 
 /// Returns true if and only if at least one of the `EndpointSlice`'s
 ///  `endpoints[].conditions.ready` evaluate to `true`
@@ -49,6 +49,8 @@ pub fn extract_team_and_app_labels(
 	parent_span: &tracing::Span,
 ) -> Option<(String, String)> {
 	Span::current().follows_from(parent_span);
+	_ = parent_span.enter();
+	info!("Doing some work inside the span");
 
 	// We expect the:
 	//   - team's given app name
