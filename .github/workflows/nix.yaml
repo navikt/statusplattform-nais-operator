@@ -15,7 +15,7 @@ jobs:
       id-token: "write"
     steps:
       - name: nix-build
-        uses: nais/nais-nix-action@main
+        uses: nais/nais-nix-action@fix_image_digest
         id: nix-build
         with:
           team: navdig
